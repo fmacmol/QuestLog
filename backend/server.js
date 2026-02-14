@@ -12,8 +12,8 @@ app.use(express.json());
 
 // Conectar a MongoDB LOCAL
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('✅ Conectado a MongoDB LOCAL'))
-  .catch(err => console.error('❌ Error conectando a MongoDB:', err.message));
+  .then(() => console.log('Conectado a MongoDB LOCAL'))
+  .catch(err => console.error('Error conectando a MongoDB:', err.message));
 
 // Modelo de Quest
 const questSchema = new mongoose.Schema({
@@ -29,7 +29,7 @@ const Quest = mongoose.model('Quest', questSchema);
 
 // Rutas
 app.get('/', (req, res) => {
-  res.json({ message: '🎮 API de QuestLog funcionando con MongoDB LOCAL' });
+  res.json({ message: 'API de QuestLog funcionando con MongoDB LOCAL' });
 });
 
 // GET todas las quests
@@ -78,6 +78,6 @@ app.delete('/api/quests/:id', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-  console.log(`📊 Base de datos: MongoDB LOCAL`);
+  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`Base de datos: MongoDB LOCAL`);
 });
