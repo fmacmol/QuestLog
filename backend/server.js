@@ -42,13 +42,13 @@ console.log('📌 URI:', process.env.MONGODB_URI ? process.env.MONGODB_URI.subst
 
 // Conexión para Mongoose 8.8.0
 mongoose.connect(process.env.MONGODB_URI)
-.then(() => {
-  console.log('✅ Conectado a MongoDB correctamente');
-  console.log('🌍 Base de datos:', mongoose.connection.name);
-})
-.catch(err => {
-  console.error('❌ Error conectando a MongoDB:', err.message);
-});
+  .then(() => {
+    console.log('✅ Conectado a MongoDB correctamente');
+    console.log('🌍 Base de datos:', mongoose.connection.name);
+  })
+  .catch(err => {
+    console.error('❌ Error conectando a MongoDB:', err.message);
+  });
 
 
 // ===== RUTAS DE AUTENTICACIÓN =====
