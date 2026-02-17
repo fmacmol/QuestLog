@@ -31,7 +31,7 @@ app.use(express.json());
 
 // Conectar a MongoDB LOCAL
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Conectado a MongoDB LOCAL '))
+  .then(() => console.log('Conectado a MongoDB LOCAL'))
   .catch(err => console.error('Error conectando a MongoDB:', err.message));
 
 
