@@ -5,6 +5,13 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const SECRET_KEY = 'tu_clave_secreta_cambiala_en_produccion';
 
+console.log('📦 Variables de entorno cargadas:');
+console.log('- PORT:', process.env.PORT);
+console.log('- MONGODB_URI:', process.env.MONGODB_URI ? '✓ Definida' : '✗ No definida');
+if (process.env.MONGODB_URI) {
+  console.log('  Tipo:', process.env.MONGODB_URI.includes('mongodb+srv') || process.env.MONGODB_URI.includes('.mongodb.net') ? 'Atlas' : 'Local');
+}
+
 
 // Middleware para verificar token
 const authenticate = (req, res, next) => {
@@ -29,10 +36,19 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Conectar a MongoDB LOCAL
+// Conectar a MongoDB (Atlas o local según .env)
+console.log('🔄 Conectando a MongoDB...');
+console.log('📌 URI:', process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 30) + '...' : 'No definida');
+
+// Conexión para Mongoose 8.8.0
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Conectado a MongoDB LOCAL'))
-  .catch(err => console.error('Error conectando a MongoDB:', err.message));
+.then(() => {
+  console.log('✅ Conectado a MongoDB correctamente');
+  console.log('🌍 Base de datos:', mongoose.connection.name);
+})
+.catch(err => {
+  console.error('❌ Error conectando a MongoDB:', err.message);
+});
 
 
 // ===== RUTAS DE AUTENTICACIÓN =====
@@ -196,8 +212,6 @@ app.delete('/api/quests/:id', authenticate, async (req, res) => {
 });
 
 
-
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
-  console.log(`Base de datos: MongoDB LOCAL`);
+  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
 });
