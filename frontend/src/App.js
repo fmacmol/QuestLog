@@ -10,6 +10,8 @@ function App() {
     xpReward: 100,
     difficulty: 'Media'
   });
+  const [editingQuest, setEditingQuest] = useState(null);
+  const [filter, setFilter] = useState('all'); // 'all', 'pending', 'completed'
 
   useEffect(() => {
     fetchQuests();
@@ -17,7 +19,7 @@ function App() {
 
   const fetchQuests = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/quests');
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests`);
       const data = await res.json();
       setQuests(data);
       setLoading(false);
@@ -39,7 +41,7 @@ function App() {
     if (!newQuest.title) return;
 
     try {
-      const res = await fetch('http://localhost:5000/api/quests', {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -51,6 +53,31 @@ function App() {
       setQuests([quest, ...quests]);
       setShowForm(false);
       setNewQuest({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
+      setEditingQuest(null);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const updateQuest = async (e) => {
+    e.preventDefault();
+    if (!newQuest.title || !editingQuest) return;
+
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests/${editingQuest._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...newQuest,
+          xpReward: parseInt(newQuest.xpReward)
+        })
+      });
+      const updatedQuest = await res.json();
+      setQuests(quests.map(q => q._id === editingQuest._id ? updatedQuest : q));
+      setShowForm(false);
+      setEditingQuest(null);
+      setNewQuest({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
+      setEditingQuest(null);
     } catch (error) {
       console.error('Error:', error);
     }
@@ -58,7 +85,7 @@ function App() {
 
   const completeQuest = async (id) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/quests/${id}/complete`, {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests/${id}/complete`, {
         method: 'PUT'
       });
       const updatedQuest = await res.json();
@@ -66,6 +93,33 @@ function App() {
     } catch (error) {
       console.error('Error:', error);
     }
+  };
+
+  // Marcar/desmarcar quest con un toque
+  const toggleQuest = async (quest) => {
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests/${quest._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed: !quest.completed })
+      });
+      const updatedQuest = await res.json();
+      setQuests(quests.map(q => q._id === quest._id ? updatedQuest : q));
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  // Dejar pulsado para editar
+  const handleLongPress = (quest) => {
+    setEditingQuest(quest);
+    setNewQuest({
+      title: quest.title,
+      description: quest.description || '',
+      xpReward: quest.xpReward,
+      difficulty: quest.difficulty
+    });
+    setShowForm(true);
   };
 
   const getDifficultyColor = (difficulty) => {
@@ -90,7 +144,14 @@ function App() {
       </div>
     );
   }
-
+  // Filtrar quests según el filtro seleccionado
+  const filteredQuests = quests.filter(quest => {
+    if (filter === 'all') return true;
+    if (filter === 'pending') return !quest.completed;
+    if (filter === 'completed') return quest.completed;
+    return true;
+  });
+  
   return (
     <div className="min-h-screen bg-gradient-to-b from-rpg-dark to-rpg-purple">
       {/* Header con estadísticas */}
@@ -101,7 +162,11 @@ function App() {
               ⚔️ QuestLog
             </h1>
             <button 
-              onClick={() => setShowForm(!showForm)}
+              onClick={() => {
+                setShowForm(!showForm);
+                setEditingQuest(null);
+                setNewQuest({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
+              }}
               className="btn-primary text-xl"
             >
               {showForm ? '✕ Cerrar' : '+ Nueva Misión'}
@@ -135,13 +200,48 @@ function App() {
             {totalXP % (level * level * 100)} / {level * level * 100} XP para nivel {level + 1}
           </p>
         </div>
+        {/* Filtros */}
+        <div className="flex justify-center gap-4 mt-6">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-6 py-2 rounded-lg font-bold transition-all duration-200 ${
+              filter === 'all' 
+                ? 'bg-rpg-gold text-rpg-dark' 
+                : 'bg-rpg-card/50 text-gray-400 hover:bg-rpg-card'
+            }`}
+          >
+            📋 Todas
+          </button>
+          <button
+            onClick={() => setFilter('pending')}
+            className={`px-6 py-2 rounded-lg font-bold transition-all duration-200 ${
+              filter === 'pending' 
+                ? 'bg-yellow-500 text-rpg-dark' 
+                : 'bg-rpg-card/50 text-gray-400 hover:bg-rpg-card'
+            }`}
+          >
+            ⏳ Pendientes
+          </button>
+          <button
+            onClick={() => setFilter('completed')}
+            className={`px-6 py-2 rounded-lg font-bold transition-all duration-200 ${
+              filter === 'completed' 
+                ? 'bg-green-500 text-rpg-dark' 
+                : 'bg-rpg-card/50 text-gray-400 hover:bg-rpg-card'
+            }`}
+          >
+            ✅ Completadas
+          </button>
+        </div>
       </header>
 
       <main className="max-w-6xl mx-auto p-6">
         {/* Formulario nueva quest */}
         {showForm && (
-          <form onSubmit={createQuest} className="quest-card mb-8">
-            <h2 className="text-2xl font-rpg text-rpg-gold mb-4">📜 Nueva Misión</h2>
+          <form onSubmit={editingQuest ? updateQuest : createQuest} className="quest-card mb-8">
+            <h2 className="text-2xl font-rpg text-rpg-gold mb-4">
+              {editingQuest ? '📝 Editar Misión' : '📜 Nueva Misión'}
+            </h2>
             <div className="grid gap-4">
               <input
                 type="text"
@@ -188,7 +288,7 @@ function App() {
                 </div>
               </div>
               <button type="submit" className="btn-primary mt-2">
-                ✨ Crear Misión
+                {editingQuest ? '💾 Guardar Cambios' : '✨ Crear Misión'}
               </button>
             </div>
           </form>
@@ -196,15 +296,28 @@ function App() {
 
         {/* Lista de quests */}
         <div className="space-y-4">
-          {quests.length === 0 ? (
+          {filteredQuests.length === 0 ? (
             <div className="text-center py-12 quest-card">
-              <p className="text-2xl text-rpg-gold mb-4">📭 No hay misiones disponibles</p>
-              <p className="text-gray-400">¡Crea tu primera misión para comenzar tu aventura!</p>
+              <p className="text-2xl text-rpg-gold mb-4">
+                {filter === 'all' && '📭 No hay misiones'}
+                {filter === 'pending' && '⏳ No hay misiones pendientes'}
+                {filter === 'completed' && '✅ No hay misiones completadas'}
+              </p>
+              <p className="text-gray-400">
+                {filter === 'all' && '¡Crea tu primera misión para comenzar tu aventura!'}
+                {filter === 'pending' && '¡Todas las misiones están completadas! 🎉'}
+                {filter === 'completed' && '¡Completa alguna misión para verla aquí!'}
+              </p>
             </div>
           ) : (
-            quests.map(quest => (
+            filteredQuests.map(quest => (
               <div key={quest._id} 
-                   className={`quest-card ${getDifficultyColor(quest.difficulty)}`}>
+                  className={`quest-card ${getDifficultyColor(quest.difficulty)} cursor-pointer select-none`}
+                  onClick={() => toggleQuest(quest)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    handleLongPress(quest);
+                  }}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -231,12 +344,9 @@ function App() {
                   </div>
                   
                   {!quest.completed ? (
-                    <button 
-                      onClick={() => completeQuest(quest._id)}
-                      className="btn-secondary whitespace-nowrap"
-                    >
-                      ✓ Completar
-                    </button>
+                    <span className="flex items-center gap-2 text-yellow-400 font-bold">
+                      <span>⏳</span> Pendiente
+                    </span>
                   ) : (
                     <span className="flex items-center gap-2 text-green-500 font-bold">
                       <span>✅</span> Completada

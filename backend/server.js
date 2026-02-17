@@ -53,15 +53,15 @@ app.post('/api/quests', async (req, res) => {
   }
 });
 
-// PUT marcar quest como completada
-app.put('/api/quests/:id/complete', async (req, res) => {
+// PUT actualizar quest (sirve para todo: completar, editar, etc.)
+app.put('/api/quests/:id', async (req, res) => {
   try {
-    const quest = await Quest.findByIdAndUpdate(
+    const updatedQuest = await Quest.findByIdAndUpdate(
       req.params.id,
-      { completed: true },
+      req.body,
       { new: true }
     );
-    res.json(quest);
+    res.json(updatedQuest);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
