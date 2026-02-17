@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from './context/AuthContext';
+import AuthForms from './components/AuthForms';
 
 function App() {
+  const { user, token, logout, loading: authLoading } = useAuth();
+  const [showAuth, setShowAuth] = useState(false);
   const [quests, setQuests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [newQuest, setNewQuest] = useState({
     title: '',
@@ -11,24 +16,98 @@ function App() {
     difficulty: 'Media'
   });
   const [editingQuest, setEditingQuest] = useState(null);
-  const [filter, setFilter] = useState('all'); // 'all', 'pending', 'completed'
+  const [filter, setFilter] = useState('all');
 
-  useEffect(() => {
-    fetchQuests();
-  }, []);
+  // ===== FUNCIONES DE LOCALSTORAGE =====
+  const saveAnonQuestsToLocal = (quests) => {
+    localStorage.setItem('questlog_quests_anon', JSON.stringify(quests));
+  };
 
+  const loadAnonQuestsFromLocal = () => {
+    const saved = localStorage.getItem('questlog_quests_anon');
+    return saved ? JSON.parse(saved) : [];
+  };
+
+  const saveUserQuestsToLocal = (userId, quests) => {
+    if (userId) {
+      localStorage.setItem(`questlog_quests_${userId}`, JSON.stringify(quests));
+    }
+  };
+
+  const loadUserQuestsFromLocal = (userId) => {
+    if (!userId) return [];
+    const saved = localStorage.getItem(`questlog_quests_${userId}`);
+    return saved ? JSON.parse(saved) : [];
+  };
+
+  // ===== FETCH QUESTS =====
   const fetchQuests = async () => {
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests`);
-      const data = await res.json();
-      setQuests(data);
+      setLoading(true);
+      
+      if (user && token) {
+        console.log('👤 Usuario logueado, cargando de servidor...');
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!res.ok) throw new Error('Error al cargar del servidor');
+        
+        const data = await res.json();
+        console.log('📦 Quests del servidor:', data);
+        setQuests(data);
+        saveUserQuestsToLocal(user.id, data);
+        // 🚫 NO guardar en anónimo aquí (eliminado)
+      } 
+      else {
+        console.log('👤 Usuario anónimo, cargando de localStorage...');
+        const anonQuests = loadAnonQuestsFromLocal();
+        console.log('📦 Quests anónimas:', anonQuests);
+        setQuests(anonQuests);
+      }
+      
       setLoading(false);
     } catch (error) {
       console.error('Error:', error);
+      
+      if (user && token) {
+        const backup = loadUserQuestsFromLocal(user.id);
+        setQuests(backup);
+      } else {
+        const anonQuests = loadAnonQuestsFromLocal();
+        setQuests(anonQuests);
+      }
+      
       setLoading(false);
     }
   };
 
+  // Esperar a que el contexto cargue antes de fetchQuests
+  useEffect(() => {
+    if (!authLoading && !isLoggingOut) {
+      fetchQuests();
+    }
+  }, [user, token, authLoading, isLoggingOut]);
+
+  // Efecto para manejar el logout
+  useEffect(() => {
+    if (isLoggingOut && !user && !token) {
+      console.log('🔄 Logout completado, cargando anónimo...');
+      const anonQuests = loadAnonQuestsFromLocal();
+      setQuests(anonQuests);
+      setIsLoggingOut(false);
+    }
+  }, [isLoggingOut, user, token]);
+
+  // ===== HANDLE LOGOUT =====
+  const handleLogout = () => {
+    // 🚫 NO guardar las quests actuales en anónimo (son del usuario)
+    // Solo marcar logout y llamar a logout()
+    setIsLoggingOut(true);
+    logout();
+  };
+
+  // ===== HANDLE INPUT CHANGE =====
   const handleInputChange = (e) => {
     setNewQuest({
       ...newQuest,
@@ -36,81 +115,159 @@ function App() {
     });
   };
 
+  // ===== CREATE QUEST =====
   const createQuest = async (e) => {
     e.preventDefault();
     if (!newQuest.title) return;
 
-    try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+    if (user && token) {
+      try {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            title: newQuest.title,
+            description: newQuest.description,
+            xpReward: parseInt(newQuest.xpReward),
+            difficulty: newQuest.difficulty
+          })
+        });
+
+        if (!res.ok) throw new Error('Error al guardar en servidor');
+
+        const savedQuest = await res.json();
+        const newQuests = [savedQuest, ...quests];
+        setQuests(newQuests);
+        // 🚫 NO guardar en anónimo aquí (el usuario está logueado)
+        saveUserQuestsToLocal(user.id, newQuests); // Opcional: actualizar backup
+        
+      } catch (error) {
+        console.error('Error:', error);
+        // Fallback: guardar localmente (como anónimo)
+        const tempQuest = {
+          _id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
           ...newQuest,
-          xpReward: parseInt(newQuest.xpReward)
-        })
-      });
-      const quest = await res.json();
-      setQuests([quest, ...quests]);
-      setShowForm(false);
-      setNewQuest({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
-      setEditingQuest(null);
-    } catch (error) {
-      console.error('Error:', error);
+          xpReward: parseInt(newQuest.xpReward),
+          completed: false,
+          createdAt: new Date().toISOString()
+        };
+        const newQuests = [tempQuest, ...quests];
+        setQuests(newQuests);
+        // Si falla el servidor, guardamos en anónimo como respaldo
+        saveAnonQuestsToLocal(newQuests);
+      }
+    } else {
+      // Usuario anónimo: guardar solo en local
+      const tempQuest = {
+        _id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        ...newQuest,
+        xpReward: parseInt(newQuest.xpReward),
+        completed: false,
+        createdAt: new Date().toISOString()
+      };
+      const newQuests = [tempQuest, ...quests];
+      setQuests(newQuests);
+      saveAnonQuestsToLocal(newQuests);
     }
+
+    setShowForm(false);
+    setNewQuest({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
+    setEditingQuest(null);
   };
 
+  // ===== UPDATE QUEST =====
   const updateQuest = async (e) => {
     e.preventDefault();
     if (!newQuest.title || !editingQuest) return;
 
-    try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests/${editingQuest._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newQuest,
-          xpReward: parseInt(newQuest.xpReward)
-        })
-      });
-      const updatedQuest = await res.json();
-      setQuests(quests.map(q => q._id === editingQuest._id ? updatedQuest : q));
-      setShowForm(false);
-      setEditingQuest(null);
-      setNewQuest({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
-      setEditingQuest(null);
-    } catch (error) {
-      console.error('Error:', error);
+    const updatedQuest = {
+      ...editingQuest,
+      title: newQuest.title,
+      description: newQuest.description,
+      xpReward: parseInt(newQuest.xpReward),
+      difficulty: newQuest.difficulty
+    };
+
+    if (user && token && !editingQuest._id.startsWith('local_')) {
+      try {
+        await fetch(`${process.env.REACT_APP_API_URL}/api/quests/${editingQuest._id}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updatedQuest)
+        });
+      } catch (error) {
+        console.error('Error:', error);
+      }
     }
+
+    const newQuests = quests.map(q => q._id === editingQuest._id ? updatedQuest : q);
+    setQuests(newQuests);
+    
+    // Guardar según el estado del usuario
+    if (user && token) {
+      saveUserQuestsToLocal(user.id, newQuests);
+      // 🚫 NO guardar en anónimo
+    } else {
+      saveAnonQuestsToLocal(newQuests);
+    }
+    
+    setShowForm(false);
+    setEditingQuest(null);
+    setNewQuest({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
   };
 
-  const completeQuest = async (id) => {
-    try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests/${id}/complete`, {
-        method: 'PUT'
-      });
-      const updatedQuest = await res.json();
-      setQuests(quests.map(q => q._id === id ? updatedQuest : q));
-    } catch (error) {
-      console.error('Error:', error);
-    }
-  };
-
-  // Marcar/desmarcar quest con un toque
+  // ===== TOGGLE QUEST =====
   const toggleQuest = async (quest) => {
-    try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests/${quest._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: !quest.completed })
-      });
-      const updatedQuest = await res.json();
-      setQuests(quests.map(q => q._id === quest._id ? updatedQuest : q));
-    } catch (error) {
-      console.error('Error:', error);
+    const updatedQuest = { ...quest, completed: !quest.completed };
+    
+    if (user && token && !quest._id.startsWith('local_')) {
+      try {
+        await fetch(`${process.env.REACT_APP_API_URL}/api/quests/${quest._id}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ completed: !quest.completed })
+        });
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+    
+    const newQuests = quests.map(q => q._id === quest._id ? updatedQuest : q);
+    setQuests(newQuests);
+    
+    // Guardar según el estado del usuario
+    if (user && token) {
+      saveUserQuestsToLocal(user.id, newQuests);
+      // 🚫 NO guardar en anónimo
+    } else {
+      saveAnonQuestsToLocal(newQuests);
     }
   };
 
-  // Dejar pulsado para editar
+  // ===== DELETE QUEST =====
+  const deleteQuest = (id) => {
+    if (!window.confirm('¿Eliminar esta misión?')) return;
+    const newQuests = quests.filter(q => q._id !== id);
+    setQuests(newQuests);
+    
+    // Guardar según el estado del usuario
+    if (user && token) {
+      saveUserQuestsToLocal(user.id, newQuests);
+      // 🚫 NO guardar en anónimo
+    } else {
+      saveAnonQuestsToLocal(newQuests);
+    }
+  };
+
   const handleLongPress = (quest) => {
     setEditingQuest(quest);
     setNewQuest({
@@ -137,14 +294,14 @@ function App() {
   const xpForNextLevel = (level * level * 100) - totalXP;
   const completedCount = quests.filter(q => q.completed).length;
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-rpg-dark flex items-center justify-center">
         <div className="text-rpg-gold text-2xl animate-pulse">Cargando misiones...</div>
       </div>
     );
   }
-  // Filtrar quests según el filtro seleccionado
+
   const filteredQuests = quests.filter(quest => {
     if (filter === 'all') return true;
     if (filter === 'pending') return !quest.completed;
@@ -154,24 +311,46 @@ function App() {
   
   return (
     <div className="min-h-screen bg-gradient-to-b from-rpg-dark to-rpg-purple">
-      {/* Header con estadísticas */}
       <header className="bg-rpg-dark/90 border-b-4 border-rpg-gold p-6 shadow-2xl">
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-between items-center mb-6">
             <h1 className="font-rpg text-5xl text-rpg-gold drop-shadow-lg">
               ⚔️ QuestLog
             </h1>
-            <button 
-              onClick={() => {
-                setShowForm(!showForm);
-                setEditingQuest(null);
-                setNewQuest({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
-              }}
-              className="btn-primary text-xl"
-            >
-              {showForm ? '✕ Cerrar' : '+ Nueva Misión'}
-            </button>
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => {
+                  setShowForm(!showForm);
+                  setEditingQuest(null);
+                  setNewQuest({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
+                }}
+                className="btn-primary text-xl"
+              >
+                {showForm ? '✕ Cerrar' : '+ Nueva Misión'}
+              </button>
+              
+              {user ? (
+                <div className="flex items-center gap-4">
+                  <span className="text-rpg-gold">⚔️ {user.username}</span>
+                  <button
+                    onClick={handleLogout}
+                    className="bg-red-500/20 hover:bg-red-500/40 text-red-500 px-4 py-2 rounded-lg"
+                  >
+                    Salir
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowAuth(true)}
+                  className="bg-rpg-gold/20 hover:bg-rpg-gold/40 text-rpg-gold px-4 py-2 rounded-lg"
+                >
+                  Iniciar Sesión
+                </button>
+              )}
+            </div>
           </div>
+
+          {showAuth && <AuthForms onClose={() => setShowAuth(false)} />}
 
           {/* Barra de progreso */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
@@ -189,7 +368,6 @@ function App() {
             </div>
           </div>
 
-          {/* Barra de XP para siguiente nivel */}
           <div className="mt-4 bg-rpg-card rounded-full h-4 overflow-hidden border border-rpg-gold/30">
             <div 
               className="bg-gradient-to-r from-rpg-gold to-yellow-500 h-full transition-all duration-500"
@@ -200,6 +378,7 @@ function App() {
             {totalXP % (level * level * 100)} / {level * level * 100} XP para nivel {level + 1}
           </p>
         </div>
+
         {/* Filtros */}
         <div className="flex justify-center gap-4 mt-6">
           <button
@@ -236,7 +415,6 @@ function App() {
       </header>
 
       <main className="max-w-6xl mx-auto p-6">
-        {/* Formulario nueva quest */}
         {showForm && (
           <form onSubmit={editingQuest ? updateQuest : createQuest} className="quest-card mb-8">
             <h2 className="text-2xl font-rpg text-rpg-gold mb-4">
@@ -294,7 +472,6 @@ function App() {
           </form>
         )}
 
-        {/* Lista de quests */}
         <div className="space-y-4">
           {filteredQuests.length === 0 ? (
             <div className="text-center py-12 quest-card">
@@ -304,9 +481,9 @@ function App() {
                 {filter === 'completed' && '✅ No hay misiones completadas'}
               </p>
               <p className="text-gray-400">
-                {filter === 'all' && '¡Crea tu primera misión para comenzar tu aventura!'}
-                {filter === 'pending' && '¡Todas las misiones están completadas! 🎉'}
-                {filter === 'completed' && '¡Completa alguna misión para verla aquí!'}
+                {filter === 'all' && '¡Crea tu primera misión!'}
+                {filter === 'pending' && '¡Todas completadas! 🎉'}
+                {filter === 'completed' && '¡Completa alguna!'}
               </p>
             </div>
           ) : (
