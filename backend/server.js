@@ -77,6 +77,16 @@ app.delete('/api/quests/:id', async (req, res) => {
   }
 });
 
+// SOLO PARA DESARROLLO: Eliminar todas las quests
+app.delete('/api/quests/cleanup', async (req, res) => {
+  try {
+    await Quest.deleteMany({});
+    res.json({ message: 'Todas las quests eliminadas' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
   console.log(`Base de datos: MongoDB LOCAL`);
