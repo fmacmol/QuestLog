@@ -1,6 +1,8 @@
+import { useSwipeable } from 'react-swipeable';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './context/AuthContext';
 import AuthForms from './components/AuthForms';
+import QuestCard from './components/QuestCard';
 
 function App() {
   const { user, token, logout, loading: authLoading } = useAuth();
@@ -9,6 +11,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [swipedQuestId, setSwipedQuestId] = useState(null);
   const [newQuest, setNewQuest] = useState({
     title: '',
     description: '',
@@ -255,19 +258,20 @@ function App() {
 
   // ===== DELETE QUEST =====
   const deleteQuest = (id) => {
-    if (!window.confirm('¿Eliminar esta misión?')) return;
     const newQuests = quests.filter(q => q._id !== id);
     setQuests(newQuests);
     
-    // Guardar según el estado del usuario
-    if (user && token) {
+    
+    if (user && token) {// Guardar según el estado del usuario
       saveUserQuestsToLocal(user.id, newQuests);
-      // 🚫 NO guardar en anónimo
-    } else {
+      
+    } else {// NO guardar en anónimo
       saveAnonQuestsToLocal(newQuests);
     }
   };
+  
 
+  // ===== LONG PRESS HANDLER =====
   const handleLongPress = (quest) => {
     setEditingQuest(quest);
     setNewQuest({
@@ -488,49 +492,14 @@ function App() {
             </div>
           ) : (
             filteredQuests.map(quest => (
-              <div key={quest._id} 
-                  className={`quest-card ${getDifficultyColor(quest.difficulty)} cursor-pointer select-none`}
-                  onClick={() => toggleQuest(quest)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    handleLongPress(quest);
-                  }}>
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-bold text-rpg-gold">{quest.title}</h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
-                        quest.difficulty === 'Fácil' ? 'border-green-500 text-green-500' :
-                        quest.difficulty === 'Media' ? 'border-yellow-500 text-yellow-500' :
-                        'border-red-500 text-red-500'
-                      }`}>
-                        {quest.difficulty}
-                      </span>
-                    </div>
-                    {quest.description && (
-                      <p className="text-gray-300 mb-2">{quest.description}</p>
-                    )}
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="bg-rpg-gold/20 text-rpg-gold px-2 py-1 rounded">
-                        ✨ {quest.xpReward} XP
-                      </span>
-                      <span className="text-gray-400">
-                        📅 {new Date(quest.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {!quest.completed ? (
-                    <span className="flex items-center gap-2 text-yellow-400 font-bold">
-                      <span>⏳</span> Pendiente
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2 text-green-500 font-bold">
-                      <span>✅</span> Completada
-                    </span>
-                  )}
-                </div>
-              </div>
+              <QuestCard
+                key={quest._id}
+                quest={quest}
+                onToggle={toggleQuest}
+                onDelete={deleteQuest}
+                onLongPress={handleLongPress}
+                getDifficultyColor={getDifficultyColor}
+              />
             ))
           )}
         </div>
