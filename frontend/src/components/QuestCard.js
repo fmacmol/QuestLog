@@ -28,7 +28,7 @@ const QuestCard = ({
 
   const handleDeleteClick = (e) => {
     e.stopPropagation();
-    onDelete(quest._id);  // ← Elimina directamente, sin confirmación
+    onDelete(quest._id);
     setShowDelete(false);
   };
 

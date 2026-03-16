@@ -41,7 +41,7 @@ const User = require('./models/User');
 // Registro
 app.post('/api/auth/register', async (req, res) => {
   try {
-    console.log('📝 Registro intentado con:', req.body);
+    console.log('Registro intentado con:', req.body);
     
     const { username, email, password } = req.body;
     
@@ -51,7 +51,7 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Usuario o email ya existe' });
     }
     
-    // 🔐 ENCRIPTAR CONTRASEÑA (¡esto es lo que faltaba!)
+    // ENCRIPTAR CONTRASEÑA (¡esto es lo que faltaba!)
     const bcrypt = require('bcryptjs');
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -73,7 +73,7 @@ app.post('/api/auth/register', async (req, res) => {
       user: { id: user._id, username, email } 
     });
   } catch (error) {
-    console.error('❌ ERROR:', error);
+    console.error('ERROR:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -83,11 +83,11 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log('🔐 Login intentado para:', email);
+    console.log('Login intentado para:', email);
     
     const user = await User.findOne({ email });
     if (!user) {
-      console.log('❌ Usuario no encontrado');
+      console.log('Usuario no encontrado');
       return res.status(401).json({ error: 'Email o contraseña incorrectos' });
     }
     
@@ -101,7 +101,7 @@ app.post('/api/auth/login', async (req, res) => {
     
     // Crear token
     const token = jwt.sign({ userId: user._id }, SECRET_KEY);
-    console.log('✅ Login exitoso para:', user.username);
+    console.log('Login exitoso para:', user.username);
     
     res.json({ 
       token, 
@@ -112,14 +112,14 @@ app.post('/api/auth/login', async (req, res) => {
       } 
     });
   } catch (error) {
-    console.error('❌ ERROR LOGIN:', error);
+    console.error('ERROR LOGIN:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Modelo de Quest
 const questSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // ← NUEVO
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   title: { type: String, required: true },
   description: { type: String, default: '' },
   xpReward: { type: Number, default: 100 },
@@ -184,7 +184,7 @@ app.delete('/api/quests/cleanup', async (req, res) => {
   }
 });
 
-// DELETE eliminar quest (opcional)
+// DELETE eliminar quest
 app.delete('/api/quests/:id', authenticate, async (req, res) => {
   try {
     const quest = await Quest.findOneAndDelete({ _id: req.params.id, userId: req.userId });

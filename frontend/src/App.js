@@ -57,15 +57,14 @@ function App() {
         if (!res.ok) throw new Error('Error al cargar del servidor');
         
         const data = await res.json();
-        console.log('📦 Quests del servidor:', data);
+        console.log('Quests del servidor:', data);
         setQuests(data);
         saveUserQuestsToLocal(user.id, data);
-        // 🚫 NO guardar en anónimo aquí (eliminado)
       } 
       else {
-        console.log('👤 Usuario anónimo, cargando de localStorage...');
+        console.log('Usuario anónimo, cargando de localStorage...');
         const anonQuests = loadAnonQuestsFromLocal();
-        console.log('📦 Quests anónimas:', anonQuests);
+        console.log('Quests anónimas:', anonQuests);
         setQuests(anonQuests);
       }
       
@@ -95,7 +94,7 @@ function App() {
   // Efecto para manejar el logout
   useEffect(() => {
     if (isLoggingOut && !user && !token) {
-      console.log('🔄 Logout completado, cargando anónimo...');
+      console.log('Logout completado, cargando anónimo...');
       const anonQuests = loadAnonQuestsFromLocal();
       setQuests(anonQuests);
       setIsLoggingOut(false);
@@ -104,7 +103,7 @@ function App() {
 
   // ===== HANDLE LOGOUT =====
   const handleLogout = () => {
-    // 🚫 NO guardar las quests actuales en anónimo (son del usuario)
+    // NO guardar las quests actuales en anónimo (son del usuario)
     // Solo marcar logout y llamar a logout()
     setIsLoggingOut(true);
     logout();
@@ -144,8 +143,8 @@ function App() {
         const savedQuest = await res.json();
         const newQuests = [savedQuest, ...quests];
         setQuests(newQuests);
-        // 🚫 NO guardar en anónimo aquí (el usuario está logueado)
-        saveUserQuestsToLocal(user.id, newQuests); // Opcional: actualizar backup
+        // NO guardar en anónimo aquí (el usuario está logueado)
+        saveUserQuestsToLocal(user.id, newQuests); // Actualizar backup (opcional)
         
       } catch (error) {
         console.error('Error:', error);
@@ -159,7 +158,7 @@ function App() {
         };
         const newQuests = [tempQuest, ...quests];
         setQuests(newQuests);
-        // Si falla el servidor, guardamos en anónimo como respaldo
+        // Si falla el servidor, guarda en anónimo como respaldo
         saveAnonQuestsToLocal(newQuests);
       }
     } else {
@@ -214,10 +213,9 @@ function App() {
     
     // Guardar según el estado del usuario
     if (user && token) {
-      saveUserQuestsToLocal(user.id, newQuests);
-      // 🚫 NO guardar en anónimo
+      saveUserQuestsToLocal(user.id, newQuests); // Usuario logueado
     } else {
-      saveAnonQuestsToLocal(newQuests);
+      saveAnonQuestsToLocal(newQuests); // Usuario anónimo
     }
     
     setShowForm(false);
@@ -249,10 +247,9 @@ function App() {
     
     // Guardar según el estado del usuario
     if (user && token) {
-      saveUserQuestsToLocal(user.id, newQuests);
-      // 🚫 NO guardar en anónimo
+      saveUserQuestsToLocal(user.id, newQuests); // Usuario logueado
     } else {
-      saveAnonQuestsToLocal(newQuests);
+      saveAnonQuestsToLocal(newQuests); // Usuario anónimo
     }
   };
 
@@ -261,12 +258,12 @@ function App() {
     const newQuests = quests.filter(q => q._id !== id);
     setQuests(newQuests);
     
-    
-    if (user && token) {// Guardar según el estado del usuario
-      saveUserQuestsToLocal(user.id, newQuests);
+    // Guardar según el estado del usuario
+    if (user && token) {
+      saveUserQuestsToLocal(user.id, newQuests); // Usuario logueado
       
-    } else {// NO guardar en anónimo
-      saveAnonQuestsToLocal(newQuests);
+    } else {
+      saveAnonQuestsToLocal(newQuests); // Usuario anónimo
     }
   };
   

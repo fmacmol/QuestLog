@@ -7,6 +7,4 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// SIN MIDDLEWARE - Encriptaremos manualmente en el registro
-
 module.exports = mongoose.model('User', userSchema);
