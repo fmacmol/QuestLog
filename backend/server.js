@@ -108,7 +108,8 @@ app.post('/api/auth/login', async (req, res) => {
       user: { 
         id: user._id, 
         username: user.username, 
-        email: user.email 
+        email: user.email, 
+        isAdmin: user.isAdmin || false
       } 
     });
   } catch (error) {
@@ -129,6 +130,19 @@ const questSchema = new mongoose.Schema({
 });
 
 const Quest = mongoose.model('Quest', questSchema);
+
+// Modelo de Retos Públicos
+const publicChallengeSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: { type: String, default: '' },
+  xpReward: { type: Number, default: 100 },
+  difficulty: { type: String, enum: ['Fácil', 'Media', 'Difícil'], default: 'Media' },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  createdAt: { type: Date, default: Date.now },
+  isActive: { type: Boolean, default: true }
+});
+
+const PublicChallenge = mongoose.model('PublicChallenge', publicChallengeSchema);
 
 // Rutas
 app.get('/', (req, res) => {
@@ -190,6 +204,60 @@ app.delete('/api/quests/:id', authenticate, async (req, res) => {
     const quest = await Quest.findOneAndDelete({ _id: req.params.id, userId: req.userId });
     if (!quest) return res.status(404).json({ error: 'Quest no encontrada' });
     res.json({ message: 'Quest eliminada' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// ===== RUTAS PARA RETOS PÚBLICOS =====
+
+// GET todos los retos activos
+app.get('/api/public-challenges', async (req, res) => {
+  try {
+    const challenges = await PublicChallenge.find({ isActive: true })
+      .sort({ createdAt: -1 })
+      .populate('createdBy', 'username');
+    res.json(challenges);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST crear nuevo reto (solo admin)
+app.post('/api/public-challenges', authenticate, async (req, res) => {
+  try {
+    // Verificar si el usuario es admin (necesitas añadir campo isAdmin al User)
+    const user = await User.findById(req.userId);
+    if (!user.isAdmin) {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    
+    const challenge = new PublicChallenge({
+      ...req.body,
+      createdBy: req.userId
+    });
+    await challenge.save();
+    res.status(201).json(challenge);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// DELETE desactivar reto (solo admin)
+app.delete('/api/public-challenges/:id', authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user.isAdmin) {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    
+    const challenge = await PublicChallenge.findByIdAndUpdate(
+      req.params.id,
+      { isActive: false },
+      { new: true }
+    );
+    res.json(challenge);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
