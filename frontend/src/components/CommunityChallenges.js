@@ -1,0 +1,174 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+
+const CommunityChallenges = ({ onAddToQuests }) => {
+  const [challenges, setChallenges] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newChallenge, setNewChallenge] = useState({
+    title: '',
+    description: '',
+    xpReward: 100,
+    difficulty: 'Media'
+  });
+  const { user, token } = useAuth();
+
+  useEffect(() => {
+    fetchChallenges();
+  }, []);
+
+  const fetchChallenges = async () => {
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/public-challenges`);
+      const data = await res.json();
+      setChallenges(data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error:', error);
+      setLoading(false);
+    }
+  };
+
+  const createChallenge = async (e) => {
+    e.preventDefault();
+    if (!newChallenge.title) return;
+
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/public-challenges`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...newChallenge,
+          xpReward: parseInt(newChallenge.xpReward)
+        })
+      });
+
+      if (res.ok) {
+        const saved = await res.json();
+        setChallenges([saved, ...challenges]);
+        setShowCreateForm(false);
+        setNewChallenge({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const acceptChallenge = (challenge) => {
+    // Copiar reto a quests del usuario
+    const newQuest = {
+      title: challenge.title,
+      description: challenge.description,
+      xpReward: challenge.xpReward,
+      difficulty: challenge.difficulty,
+      completed: false,
+      createdAt: new Date().toISOString()
+    };
+    onAddToQuests(newQuest);
+  };
+
+  if (loading) return <div className="text-center py-8">Cargando retos...</div>;
+
+  return (
+    <div className="bg-rpg-card rounded-xl border border-rpg-gold/30 p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-rpg text-rpg-gold">🌍 Retos de la Comunidad</h2>
+        {user?.isAdmin && (
+          <button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="btn-secondary"
+          >
+            {showCreateForm ? '✕ Cancelar' : '+ Crear Reto'}
+          </button>
+        )}
+      </div>
+
+      {showCreateForm && user?.isAdmin && (
+        <form onSubmit={createChallenge} className="mb-6 p-4 bg-rpg-dark/50 rounded-lg">
+          <h3 className="text-lg font-bold text-rpg-gold mb-3">📜 Nuevo Reto</h3>
+          <div className="grid gap-3">
+            <input
+              type="text"
+              name="title"
+              value={newChallenge.title}
+              onChange={(e) => setNewChallenge({ ...newChallenge, title: e.target.value })}
+              placeholder="Título del reto"
+              className="p-2 bg-rpg-dark/50 border border-rpg-gold/30 rounded text-white"
+              required
+            />
+            <textarea
+              name="description"
+              value={newChallenge.description}
+              onChange={(e) => setNewChallenge({ ...newChallenge, description: e.target.value })}
+              placeholder="Descripción"
+              className="p-2 bg-rpg-dark/50 border border-rpg-gold/30 rounded text-white"
+              rows="2"
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="number"
+                name="xpReward"
+                value={newChallenge.xpReward}
+                onChange={(e) => setNewChallenge({ ...newChallenge, xpReward: e.target.value })}
+                placeholder="XP"
+                className="p-2 bg-rpg-dark/50 border border-rpg-gold/30 rounded text-white"
+              />
+              <select
+                name="difficulty"
+                value={newChallenge.difficulty}
+                onChange={(e) => setNewChallenge({ ...newChallenge, difficulty: e.target.value })}
+                className="p-2 bg-rpg-dark/50 border border-rpg-gold/30 rounded text-white"
+              >
+                <option value="Fácil">Fácil</option>
+                <option value="Media">Media</option>
+                <option value="Difícil">Difícil</option>
+              </select>
+            </div>
+            <button type="submit" className="btn-primary py-2">Publicar Reto</button>
+          </div>
+        </form>
+      )}
+
+      <div className="space-y-3">
+        {challenges.length === 0 ? (
+          <p className="text-center text-gray-400">No hay retos activos. ¡Vuelve pronto!</p>
+        ) : (
+          challenges.map(challenge => (
+            <div key={challenge._id} className="border border-rpg-gold/30 rounded-lg p-4">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-rpg-gold">{challenge.title}</h3>
+                  {challenge.description && (
+                    <p className="text-gray-300 text-sm mt-1">{challenge.description}</p>
+                  )}
+                  <div className="flex gap-3 mt-2 text-sm">
+                    <span className="text-rpg-gold">✨ {challenge.xpReward} XP</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${
+                      challenge.difficulty === 'Fácil' ? 'bg-green-500/20 text-green-400' :
+                      challenge.difficulty === 'Media' ? 'bg-yellow-500/20 text-yellow-400' :
+                      'bg-red-500/20 text-red-400'
+                    }`}>
+                      {challenge.difficulty}
+                    </span>
+                    <span className="text-gray-500 text-xs">👤 {challenge.createdBy?.username || 'Admin'}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => acceptChallenge(challenge)}
+                  className="btn-secondary text-sm px-3 py-1"
+                >
+                  + Aceptar
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default CommunityChallenges;

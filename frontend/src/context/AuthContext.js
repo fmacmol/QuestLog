@@ -14,21 +14,30 @@ export const AuthProvider = ({ children }) => {
     const storedUser = localStorage.getItem('user');
     
     if (storedToken && storedUser) {
+      const parsedUser = JSON.parse(storedUser);
       setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      setUser({
+        id: parsedUser.id,
+        username: parsedUser.username,
+        email: parsedUser.email,
+        isAdmin: parsedUser.isAdmin || false
+      });
     }
     
     setLoading(false);
   }, []);
 
   const login = (userData, authToken) => {
-    // Asegurar que el usuario tiene el campo 'id'
+    console.log('🔐 Datos de usuario recibidos en login:', userData);
     const userForState = {
       id: userData._id || userData.id,
       username: userData.username,
-      email: userData.email
+      email: userData.email,
+      isAdmin: userData.isAdmin || false
     };
     
+    console.log('👤 Usuario guardado en estado:', userForState);
+
     setUser(userForState);
     setToken(authToken);
     localStorage.setItem('token', authToken);

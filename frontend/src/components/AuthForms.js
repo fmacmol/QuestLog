@@ -35,6 +35,7 @@ const AuthForms = ({ onClose }) => {
       });
       
       const data = await res.json();
+      console.log('📡 Respuesta del servidor en login/register:', data);
       
       if (!res.ok) {
         throw new Error(data.error || 'Error en autenticación');

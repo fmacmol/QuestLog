@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from './context/AuthContext';
 import AuthForms from './components/AuthForms';
 import QuestCard from './components/QuestCard';
+import CommunityChallenges from './components/CommunityChallenges';
 
 function App() {
   const { user, token, logout, loading: authLoading } = useAuth();
@@ -267,6 +268,34 @@ function App() {
     }
   };
   
+const addChallengeToQuests = (newQuest) => {
+  const questToAdd = {
+    _id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+    ...newQuest,
+    xpReward: parseInt(newQuest.xpReward),
+    completed: false,
+    createdAt: new Date().toISOString()
+  };
+  
+  const updatedQuests = [questToAdd, ...quests];
+  setQuests(updatedQuests);
+  
+  // Guardar según estado del usuario
+  if (user && token) {
+    // Si está logueado, también guardar en servidor
+    fetch(`${process.env.REACT_APP_API_URL}/api/quests`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(newQuest)
+    }).catch(console.error);
+    saveUserQuestsToLocal(user.id, updatedQuests);
+  } else {
+    saveAnonQuestsToLocal(updatedQuests);
+  }
+};
 
   // ===== LONG PRESS HANDLER =====
   const handleLongPress = (quest) => {
@@ -416,6 +445,12 @@ function App() {
       </header>
 
       <main className="max-w-6xl mx-auto p-6">
+        {
+        /* Sección de retos comunitarios */}
+        <div className="mb-8">
+          <CommunityChallenges onAddToQuests={addChallengeToQuests} />
+        </div>
+        
         {showForm && (
           <form onSubmit={editingQuest ? updateQuest : createQuest} className="quest-card mb-8">
             <h2 className="text-2xl font-rpg text-rpg-gold mb-4">
