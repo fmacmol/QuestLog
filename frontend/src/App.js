@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext';
 import AuthForms from './components/AuthForms';
 import QuestCard from './components/QuestCard';
 import CommunityChallenges from './components/CommunityChallenges';
+import useLevelUp from './hooks/useLevelUp';
 
 function App() {
   const { user, token, logout, loading: authLoading } = useAuth();
@@ -323,6 +324,15 @@ const addChallengeToQuests = (newQuest) => {
   const level = Math.floor(Math.sqrt(totalXP / 100)) + 1;
   const xpForNextLevel = (level * level * 100) - totalXP;
   const completedCount = quests.filter(q => q.completed).length;
+  const [previousLevel, setPreviousLevel] = useState(level);
+
+  // Detectar subida de nivel
+  useLevelUp(level, previousLevel);
+
+  // Actualizar nivel anterior cuando cambie
+  useEffect(() => {
+    setPreviousLevel(level);
+  }, [level]);
 
   if (authLoading || loading) {
     return (
