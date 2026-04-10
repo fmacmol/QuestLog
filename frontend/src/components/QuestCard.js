@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSwipeable } from 'react-swipeable';
 
 const QuestCard = ({ 
@@ -9,10 +9,17 @@ const QuestCard = ({
   getDifficultyColor 
 }) => {
   
+  const [localSubtasks, setLocalSubtasks] = useState(quest.subtasks || []);
+  const [localCompleted, setLocalCompleted] = useState(quest.completed);
   const [showDelete, setShowDelete] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
-  const longPressTimer = useRef(null);
+
+  // Sincronizar cuando la quest cambie desde fuera
+  useEffect(() => {
+    setLocalSubtasks(quest.subtasks || []);
+    setLocalCompleted(quest.completed);
+  }, [quest.subtasks, quest.completed]);
 
   const swipeHandlers = useSwipeable({
     onSwipedLeft: () => setShowDelete(true),
@@ -21,7 +28,6 @@ const QuestCard = ({
     trackMouse: false
   });
 
-  // Cerrar menú al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -40,53 +46,12 @@ const QuestCard = ({
     };
   }, [showMenu]);
 
-  // Limpiar timer al desmontar
-  useEffect(() => {
-    return () => {
-      if (longPressTimer.current) {
-        clearTimeout(longPressTimer.current);
-      }
-    };
-  }, []);
-
-  // Handlers para long press (dejar pulsado)
-  const handleTouchStart = () => {
-    longPressTimer.current = setTimeout(() => {
-      onEdit(quest);
-    }, 500); // 500ms = tiempo para considerar "long press"
-  };
-
-  const handleTouchEnd = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  };
-
-  const handleMouseDown = (e) => {
-    // Solo para botón izquierdo del ratón (en PC también funciona)
-    if (e.button === 0) {
-      longPressTimer.current = setTimeout(() => {
-        onEdit(quest);
-      }, 500);
-    }
-  };
-
-  const handleMouseUp = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  };
-
   const handleCardClick = (e) => {
-    // Si el clic viene del menú o del botón del menú, no hacer toggle
-    if (e.target.closest('.menu-container')) {
-      return;
-    }
+    if (e.target.closest('.menu-container')) return;
+    if (e.target.closest('.subtask-checkbox')) return;
     if (showDelete) {
       setShowDelete(false);
-    } else {
+    } else if (!quest.isMultiRequirement) {
       onToggle(quest);
     }
   };
@@ -109,20 +74,29 @@ const QuestCard = ({
     setShowMenu(!showMenu);
   };
 
+  const handleSubtaskChange = (idx, newValue) => {
+    // Actualizar localmente
+    const newSubtasks = [...localSubtasks];
+    newSubtasks[idx] = { ...newSubtasks[idx], completed: newValue };
+    setLocalSubtasks(newSubtasks);
+    
+    // Crear quest actualizada
+    const updatedQuest = {
+      ...quest,
+      subtasks: newSubtasks
+    };
+    
+    // Enviar al padre
+    onToggle(updatedQuest);
+  };
+
   return (
     <div {...swipeHandlers}
          className={`quest-card ${getDifficultyColor(quest.difficulty)} cursor-pointer select-none relative overflow-visible transition-all duration-200 ${
            showDelete ? 'scale-95 opacity-75' : ''
          }`}
-         onClick={handleCardClick}
-         onTouchStart={handleTouchStart}
-         onTouchEnd={handleTouchEnd}
-         onTouchCancel={handleTouchEnd}
-         onMouseDown={handleMouseDown}
-         onMouseUp={handleMouseUp}
-         onMouseLeave={handleMouseUp}>
+         onClick={handleCardClick}>
       
-      {/* Botón de eliminar que aparece al hacer swipe */}
       {showDelete && (
         <div 
           className="absolute inset-y-0 right-0 w-20 bg-red-500/90 flex items-center justify-center text-white font-bold text-sm cursor-pointer hover:bg-red-600 transition-colors z-10"
@@ -132,8 +106,7 @@ const QuestCard = ({
         </div>
       )}
 
-      {/* Menú de tres puntos (kebab menu) - solo visible en web/tablet */}
-      <div className="hidden sm:block absolute top-3 right-3 z-20 menu-container" ref={menuRef}>
+      <div className="absolute top-3 right-3 z-20 menu-container" ref={menuRef}>
         <button
           onClick={handleMenuClick}
           className="text-gray-400 hover:text-rpg-gold transition-colors p-1 rounded-full hover:bg-rpg-dark/50"
@@ -167,7 +140,6 @@ const QuestCard = ({
         )}
       </div>
       
-      {/* Contenido de la quest */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pr-8">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
@@ -191,13 +163,44 @@ const QuestCard = ({
               📅 {new Date(quest.createdAt).toLocaleDateString()}
             </span>
           </div>
+          
+          {/* SUBTAREAS - usando estado local */}
+          {quest.isMultiRequirement && localSubtasks.length > 0 && (
+            <div className="mt-3 pt-2 border-t border-rpg-gold/20">
+              <p className="text-xs text-gray-400 mb-2">📋 Requisitos:</p>
+              <div className="space-y-1">
+                {localSubtasks.map((subtask, idx) => (
+                  <div key={`${quest._id}-${idx}`} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={subtask.completed}
+                      className="subtask-checkbox w-3 h-3 rounded border-rpg-gold/30 cursor-pointer"
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleSubtaskChange(idx, e.target.checked);
+                      }}
+                    />
+                    <span className={`text-xs text-gray-400 ${subtask.completed ? 'line-through' : ''}`}>
+                      {subtask.text}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         
-        {!quest.completed ? (
+        {!quest.isMultiRequirement && !localCompleted ? (
           <span className="flex items-center gap-2 text-yellow-400 font-bold">
             <span>⏳</span> Pendiente
           </span>
-        ) : (
+        ) : !quest.isMultiRequirement && localCompleted ? (
+          <span className="flex items-center gap-2 text-green-500 font-bold">
+            <span>✅</span> Completada
+          </span>
+        ) : null}
+        
+        {quest.isMultiRequirement && localCompleted && (
           <span className="flex items-center gap-2 text-green-500 font-bold">
             <span>✅</span> Completada
           </span>

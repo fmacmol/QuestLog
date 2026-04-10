@@ -126,7 +126,14 @@ const questSchema = new mongoose.Schema({
   xpReward: { type: Number, default: 100 },
   difficulty: { type: String, enum: ['Fácil', 'Media', 'Difícil'], default: 'Media' },
   completed: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  
+  // NUEVOS CAMPOS PARA MULTIREQUISITOS
+  isMultiRequirement: { type: Boolean, default: false },
+  subtasks: [{
+    text: { type: String, required: true },
+    completed: { type: Boolean, default: false }
+  }]
 });
 
 const Quest = mongoose.model('Quest', questSchema);

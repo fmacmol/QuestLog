@@ -21,6 +21,9 @@ function App() {
     xpReward: 100,
     difficulty: 'Media'
   });
+  const [isMultiRequirement, setIsMultiRequirement] = useState(false);
+  const [subtasks, setSubtasks] = useState([]);
+  const [newSubtaskText, setNewSubtaskText] = useState('');
   const [editingQuest, setEditingQuest] = useState(null);
   const [filter, setFilter] = useState('all');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -126,6 +129,15 @@ function App() {
     e.preventDefault();
     if (!newQuest.title) return;
 
+    const questData = {
+      title: newQuest.title,
+      description: newQuest.description,
+      xpReward: parseInt(newQuest.xpReward),
+      difficulty: newQuest.difficulty,
+      isMultiRequirement: isMultiRequirement,
+      subtasks: isMultiRequirement ? subtasks : []
+    };
+
     if (user && token) {
       try {
         const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests`, {
@@ -134,12 +146,7 @@ function App() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({
-            title: newQuest.title,
-            description: newQuest.description,
-            xpReward: parseInt(newQuest.xpReward),
-            difficulty: newQuest.difficulty
-          })
+          body: JSON.stringify(questData)
         });
 
         if (!res.ok) throw new Error('Error al guardar en servidor');
@@ -147,30 +154,26 @@ function App() {
         const savedQuest = await res.json();
         const newQuests = [savedQuest, ...quests];
         setQuests(newQuests);
-        // NO guardar en anónimo aquí (el usuario está logueado)
-        saveUserQuestsToLocal(user.id, newQuests); // Actualizar backup (opcional)
+        saveUserQuestsToLocal(user.id, newQuests);
         
       } catch (error) {
-        console.error('Error:', error);
-        // Fallback: guardar localmente (como anónimo)
+        console.error('Error al guardar en servidor:', error);
+        // Fallback: guardar localmente
         const tempQuest = {
           _id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-          ...newQuest,
-          xpReward: parseInt(newQuest.xpReward),
+          ...questData,
           completed: false,
           createdAt: new Date().toISOString()
         };
         const newQuests = [tempQuest, ...quests];
         setQuests(newQuests);
-        // Si falla el servidor, guarda en anónimo como respaldo
         saveAnonQuestsToLocal(newQuests);
       }
     } else {
-      // Usuario anónimo: guardar solo en local
+      // Modo anónimo
       const tempQuest = {
         _id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-        ...newQuest,
-        xpReward: parseInt(newQuest.xpReward),
+        ...questData,
         completed: false,
         createdAt: new Date().toISOString()
       };
@@ -179,10 +182,36 @@ function App() {
       saveAnonQuestsToLocal(newQuests);
     }
 
+    // Resetear formulario
     setShowForm(false);
     setNewQuest({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
+    setIsMultiRequirement(false);
+    setSubtasks([]);
+    setNewSubtaskText('');
     setEditingQuest(null);
   };
+
+  // Añadir subtarea
+  const addSubtask = () => {
+    if (!newSubtaskText.trim()) return;
+    setSubtasks([...subtasks, { text: newSubtaskText, completed: false }]);
+    setNewSubtaskText('');
+  };
+
+  // Eliminar subtarea
+  const removeSubtask = (index) => {
+    setSubtasks(subtasks.filter((_, i) => i !== index));
+  };
+
+  // Toggle subtarea
+  const toggleSubtask = (index) => {
+    const newSubtasks = [...subtasks];
+    newSubtasks[index].completed = !newSubtasks[index].completed;
+    setSubtasks(newSubtasks);
+  };
+
+
+
 
   // ===== UPDATE QUEST =====
   const updateQuest = async (e) => {
@@ -194,7 +223,9 @@ function App() {
       title: newQuest.title,
       description: newQuest.description,
       xpReward: parseInt(newQuest.xpReward),
-      difficulty: newQuest.difficulty
+      difficulty: newQuest.difficulty,
+      isMultiRequirement: isMultiRequirement,
+      subtasks: isMultiRequirement ? subtasks : []
     };
 
     if (user && token && !editingQuest._id.startsWith('local_')) {
@@ -208,29 +239,52 @@ function App() {
           body: JSON.stringify(updatedQuest)
         });
       } catch (error) {
-        console.error('Error:', error);
+        console.error('Error al actualizar en servidor:', error);
       }
     }
 
     const newQuests = quests.map(q => q._id === editingQuest._id ? updatedQuest : q);
     setQuests(newQuests);
     
-    // Guardar según el estado del usuario
     if (user && token) {
-      saveUserQuestsToLocal(user.id, newQuests); // Usuario logueado
+      saveUserQuestsToLocal(user.id, newQuests);
     } else {
-      saveAnonQuestsToLocal(newQuests); // Usuario anónimo
+      saveAnonQuestsToLocal(newQuests);
     }
     
-    setShowForm(false);
-    setEditingQuest(null);
+    // ===== RESETEAR COMPLETAMENTE EL FORMULARIO =====
+    setShowForm(false);           // Cerrar formulario
+    setEditingQuest(null);        // Limpiar edición
     setNewQuest({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
+    setIsMultiRequirement(false); // Resetear checkbox
+    setSubtasks([]);              // Vaciar subtareas
+    setNewSubtaskText('');        // Vaciar input de subtarea
   };
 
   // ===== TOGGLE QUEST =====
   const toggleQuest = async (quest) => {
-    const updatedQuest = { ...quest, completed: !quest.completed };
+    console.log('📝 toggleQuest recibió:', quest);
     
+    let updatedQuest;
+    
+    if (quest.isMultiRequirement && quest.subtasks) {
+      const allSubtasksCompleted = quest.subtasks.every(st => st.completed === true);
+      console.log('📊 Subtareas completadas:', allSubtasksCompleted);
+      
+      updatedQuest = {
+        ...quest,
+        completed: allSubtasksCompleted
+      };
+    } else {
+      updatedQuest = { ...quest, completed: !quest.completed };
+    }
+    
+    console.log('✅ updatedQuest:', updatedQuest);
+    
+    // Si no hay cambios, salir
+    if (JSON.stringify(quest) === JSON.stringify(updatedQuest)) return;
+    
+    // Actualizar en servidor (si aplica)
     if (user && token && !quest._id.startsWith('local_')) {
       try {
         await fetch(`${process.env.REACT_APP_API_URL}/api/quests/${quest._id}`, {
@@ -239,21 +293,28 @@ function App() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ completed: !quest.completed })
+          body: JSON.stringify(updatedQuest)
         });
       } catch (error) {
         console.error('Error:', error);
       }
     }
     
-    const newQuests = quests.map(q => q._id === quest._id ? updatedQuest : q);
+    // Actualizar estado local - CREAR NUEVO ARRAY
+    const newQuests = quests.map(q => {
+      if (q._id === quest._id) {
+        return updatedQuest;
+      }
+      return q;
+    });
+    
     setQuests(newQuests);
     
-    // Guardar según el estado del usuario
+    // Guardar en localStorage
     if (user && token) {
-      saveUserQuestsToLocal(user.id, newQuests); // Usuario logueado
+      saveUserQuestsToLocal(user.id, newQuests);
     } else {
-      saveAnonQuestsToLocal(newQuests); // Usuario anónimo
+      saveAnonQuestsToLocal(newQuests);
     }
   };
 
@@ -502,6 +563,65 @@ const removeChallengeFromQuests = (challengeId) => {
                     <option value="Difícil">Difícil</option>
                   </select>
                 </div>
+                <div className="mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isMultiRequirement}
+                      onChange={(e) => {
+                        setIsMultiRequirement(e.target.checked);
+                        if (!e.target.checked) setSubtasks([]);
+                      }}
+                      className="w-5 h-5 rounded border-rpg-gold/30 text-rpg-gold focus:ring-rpg-gold"
+                    />
+                    <span className="text-gray-300">Esta misión tiene requisitos (subtareas)</span>
+                  </label>
+                </div>
+
+                {isMultiRequirement && (
+                  <div className="bg-rpg-dark/30 p-4 rounded-lg">
+                    <label className="block text-sm text-gray-400 mb-2">Lista de requisitos:</label>
+                    <div className="space-y-2 mb-3">
+                      {subtasks.map((subtask, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={subtask.completed}
+                            onChange={() => toggleSubtask(idx)}
+                            className="w-4 h-4 rounded border-rpg-gold/30"
+                          />
+                          <span className={`flex-1 text-gray-300 ${subtask.completed ? 'line-through text-gray-500' : ''}`}>
+                            {subtask.text}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeSubtask(idx)}
+                            className="text-red-400 hover:text-red-500"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newSubtaskText}
+                        onChange={(e) => setNewSubtaskText(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && addSubtask()}
+                        placeholder="Nuevo requisito..."
+                        className="flex-1 p-2 bg-rpg-dark/50 border border-rpg-gold/30 rounded text-white text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={addSubtask}
+                        className="btn-secondary text-sm px-3 py-1"
+                      >
+                        + Añadir
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               <button type="submit" className="btn-primary mt-2">
                 {editingQuest ? '💾 Guardar Cambios' : '✨ Crear Misión'}
