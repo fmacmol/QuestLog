@@ -269,11 +269,11 @@ function App() {
     }
   };
   
-const addChallengeToQuests = (newQuest) => {
+const addChallengeToQuests = (newQuest, challengeId) => {
   const questToAdd = {
     _id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
     ...newQuest,
-    xpReward: parseInt(newQuest.xpReward),
+    fromChallenge: challengeId,  // Guardamos qué reto original lo creó
     completed: false,
     createdAt: new Date().toISOString()
   };
@@ -292,6 +292,18 @@ const addChallengeToQuests = (newQuest) => {
       },
       body: JSON.stringify(newQuest)
     }).catch(console.error);
+    saveUserQuestsToLocal(user.id, updatedQuests);
+  } else {
+    saveAnonQuestsToLocal(updatedQuests);
+  }
+};
+
+// Eliminar copia de reto cancelado
+const removeChallengeFromQuests = (challengeId) => {
+  const updatedQuests = quests.filter(q => q.fromChallenge !== challengeId);
+  setQuests(updatedQuests);
+  
+  if (user && token) {
     saveUserQuestsToLocal(user.id, updatedQuests);
   } else {
     saveAnonQuestsToLocal(updatedQuests);
@@ -324,15 +336,10 @@ const addChallengeToQuests = (newQuest) => {
   const level = Math.floor(Math.sqrt(totalXP / 100)) + 1;
   const xpForNextLevel = (level * level * 100) - totalXP;
   const completedCount = quests.filter(q => q.completed).length;
-  const [previousLevel, setPreviousLevel] = useState(level);
 
   // Detectar subida de nivel
-  useLevelUp(level, previousLevel);
+  useLevelUp(level);
 
-  // Actualizar nivel anterior cuando cambie
-  useEffect(() => {
-    setPreviousLevel(level);
-  }, [level]);
 
   if (authLoading || loading) {
     return (
@@ -458,7 +465,10 @@ const addChallengeToQuests = (newQuest) => {
         {
         /* Sección de retos comunitarios */}
         <div className="mb-8">
-          <CommunityChallenges onAddToQuests={addChallengeToQuests} />
+          <CommunityChallenges 
+            onAddToQuests={addChallengeToQuests} 
+            onRemoveFromQuests={removeChallengeFromQuests}  
+          />
         </div>
         
         {showForm && (

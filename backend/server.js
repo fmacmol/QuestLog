@@ -139,7 +139,8 @@ const publicChallengeSchema = new mongoose.Schema({
   difficulty: { type: String, enum: ['Fácil', 'Media', 'Difícil'], default: 'Media' },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   createdAt: { type: Date, default: Date.now },
-  isActive: { type: Boolean, default: true }
+  isActive: { type: Boolean, default: true },
+  acceptedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 });
 
 const PublicChallenge = mongoose.model('PublicChallenge', publicChallengeSchema);
@@ -219,6 +220,49 @@ app.get('/api/public-challenges', async (req, res) => {
       .sort({ createdAt: -1 })
       .populate('createdBy', 'username');
     res.json(challenges);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST aceptar un reto (añade el usuario a acceptedBy)
+app.post('/api/public-challenges/:id/accept', authenticate, async (req, res) => {
+  try {
+    const challenge = await PublicChallenge.findById(req.params.id);
+    if (!challenge) {
+      return res.status(404).json({ error: 'Reto no encontrado' });
+    }
+    
+    // Si el usuario ya lo aceptó, devolver error
+    if (challenge.acceptedBy.includes(req.userId)) {
+      return res.status(400).json({ error: 'Ya aceptaste este reto' });
+    }
+    
+    // Añadir usuario a la lista de aceptados
+    challenge.acceptedBy.push(req.userId);
+    await challenge.save();
+    
+    res.json({ success: true, challenge });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST cancelar reto (quita el usuario de acceptedBy)
+app.post('/api/public-challenges/:id/cancel', authenticate, async (req, res) => {
+  try {
+    const challenge = await PublicChallenge.findById(req.params.id);
+    if (!challenge) {
+      return res.status(404).json({ error: 'Reto no encontrado' });
+    }
+    
+    // Quitar usuario de la lista de aceptados
+    challenge.acceptedBy = challenge.acceptedBy.filter(
+      userId => userId.toString() !== req.userId
+    );
+    await challenge.save();
+    
+    res.json({ success: true, challenge });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

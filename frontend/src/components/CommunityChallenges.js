@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-const CommunityChallenges = ({ onAddToQuests }) => {
+const CommunityChallenges = ({ onAddToQuests, onRemoveFromQuests }) => {
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -57,17 +57,88 @@ const CommunityChallenges = ({ onAddToQuests }) => {
     }
   };
 
-  const acceptChallenge = (challenge) => {
-    // Copiar reto a quests del usuario
-    const newQuest = {
-      title: challenge.title,
-      description: challenge.description,
-      xpReward: challenge.xpReward,
-      difficulty: challenge.difficulty,
-      completed: false,
-      createdAt: new Date().toISOString()
-    };
-    onAddToQuests(newQuest);
+  const acceptChallenge = async (challenge) => {
+    if (!user) {
+      alert('Debes iniciar sesión para aceptar retos');
+      return;
+    }
+    
+    try {
+      // Llamar al backend para marcar como aceptado
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/public-challenges/${challenge._id}/accept`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        alert(error.error || 'Error al aceptar reto');
+        return;
+      }
+
+      // Crear copia en quests del usuario
+      const newQuest = {
+        title: challenge.title,
+        description: challenge.description,
+        xpReward: challenge.xpReward,
+        difficulty: challenge.difficulty,
+        completed: false,
+        createdAt: new Date().toISOString(),
+        fromChallenge: challenge._id  // Guardar referencia
+      };
+      
+      onAddToQuests(newQuest, challenge._id);
+      
+      // Actualizar el estado local para mostrar como aceptado
+      setChallenges(prev => prev.map(c => 
+        c._id === challenge._id 
+          ? { ...c, acceptedBy: [...(c.acceptedBy || []), { _id: user.id }] }
+          : c
+      ));
+      
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const cancelChallenge = async (challenge) => {
+    if (!window.confirm(`¿Cancelar el reto "${challenge.title}"? Se eliminará de tus misiones.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/public-challenges/${challenge._id}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        alert(error.error || 'Error al cancelar reto');
+        return;
+      }
+
+      // Eliminar la copia de las quests del usuario
+      onRemoveFromQuests(challenge._id);
+      
+      // Actualizar estado local
+      setChallenges(prev => prev.map(c => 
+        c._id === challenge._id 
+          ? { ...c, acceptedBy: (c.acceptedBy || []).filter(u => u._id !== user.id) }
+          : c
+      ));
+      
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const isAccepted = (challenge) => {
+    return challenge.acceptedBy?.some(u => u._id === user?.id);
   };
 
   if (loading) return <div className="text-center py-8">Cargando retos...</div>;
@@ -136,35 +207,57 @@ const CommunityChallenges = ({ onAddToQuests }) => {
         {challenges.length === 0 ? (
           <p className="text-center text-gray-400">No hay retos activos. ¡Vuelve pronto!</p>
         ) : (
-          challenges.map(challenge => (
-            <div key={challenge._id} className="border border-rpg-gold/30 rounded-lg p-4">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-rpg-gold">{challenge.title}</h3>
-                  {challenge.description && (
-                    <p className="text-gray-300 text-sm mt-1">{challenge.description}</p>
-                  )}
-                  <div className="flex gap-3 mt-2 text-sm">
-                    <span className="text-rpg-gold">✨ {challenge.xpReward} XP</span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${
-                      challenge.difficulty === 'Fácil' ? 'bg-green-500/20 text-green-400' :
-                      challenge.difficulty === 'Media' ? 'bg-yellow-500/20 text-yellow-400' :
-                      'bg-red-500/20 text-red-400'
-                    }`}>
-                      {challenge.difficulty}
-                    </span>
-                    <span className="text-gray-500 text-xs">👤 {challenge.createdBy?.username || 'Admin'}</span>
+          challenges.map(challenge => {
+            const accepted = isAccepted(challenge);
+            return (
+              <div key={challenge._id} className="border border-rpg-gold/30 rounded-lg p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-rpg-gold">{challenge.title}</h3>
+                    {challenge.description && (
+                      <p className="text-gray-300 text-sm mt-1">{challenge.description}</p>
+                    )}
+                    <div className="flex gap-3 mt-2 text-sm">
+                      <span className="text-rpg-gold">✨ {challenge.xpReward} XP</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${
+                        challenge.difficulty === 'Fácil' ? 'bg-green-500/20 text-green-400' :
+                        challenge.difficulty === 'Media' ? 'bg-yellow-500/20 text-yellow-400' :
+                        'bg-red-500/20 text-red-400'
+                      }`}>
+                        {challenge.difficulty}
+                      </span>
+                      <span className="text-gray-500 text-xs">👤 {challenge.createdBy?.username || 'Admin'}</span>
+                    </div>
                   </div>
+                  
+                  {user ? (
+                    accepted ? (
+                      <button
+                        onClick={() => cancelChallenge(challenge)}
+                        className="bg-red-500/20 hover:bg-red-500/40 text-red-400 text-sm px-3 py-1 rounded-lg transition-colors"
+                      >
+                        ✕ Cancelar
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => acceptChallenge(challenge)}
+                        className="btn-secondary text-sm px-3 py-1"
+                      >
+                        + Aceptar
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      onClick={() => alert('Inicia sesión para aceptar retos')}
+                      className="btn-secondary text-sm px-3 py-1 opacity-50"
+                    >
+                     Inicia sesión
+                    </button>
+                  )}
                 </div>
-                <button
-                  onClick={() => acceptChallenge(challenge)}
-                  className="btn-secondary text-sm px-3 py-1"
-                >
-                  + Aceptar
-                </button>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

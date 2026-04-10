@@ -1,13 +1,16 @@
 import { useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 
-const useLevelUp = (currentLevel, previousLevel) => {
-  const hasTriggered = useRef(false);
+const useLevelUp = (currentLevel) => {
+  const previousLevelRef = useRef(currentLevel);
+  const hasTriggeredRef = useRef(false);
 
   useEffect(() => {
-    // Detectar si subió de nivel y no hemos disparado la animación aún
-    if (currentLevel > previousLevel && !hasTriggered.current) {
-      hasTriggered.current = true;
+    const previousLevel = previousLevelRef.current;
+    
+    // Si el nivel aumentó y no hemos disparado ya esta subida
+    if (currentLevel > previousLevel && !hasTriggeredRef.current) {
+      hasTriggeredRef.current = true;
       
       // 🎉 ANIMACIÓN DE CONFETI
       confetti({
@@ -18,13 +21,15 @@ const useLevelUp = (currentLevel, previousLevel) => {
         colors: ['#e4b363', '#2d1b3c', '#f5c542', '#ffd700']
       });
       
-      // Confeti adicional desde ambos lados
+      // Confeti desde izquierda
       confetti({
         particleCount: 100,
         angle: 60,
         spread: 55,
         origin: { x: 0, y: 0.7 }
       });
+      
+      // Confeti desde derecha
       confetti({
         particleCount: 100,
         angle: 120,
@@ -32,15 +37,15 @@ const useLevelUp = (currentLevel, previousLevel) => {
         origin: { x: 1, y: 0.7 }
       });
       
-      // 🔊 SONIDO DE SUBIDA DE NIVEL
+      // 🔊 SONIDO
       const audio = new Audio('/sounds/level-up.mp3');
       audio.volume = 0.5;
-      audio.play().catch(e => console.log('Error reproduciendo sonido:', e));
+      audio.play().catch(e => console.log('Error:', e));
       
-      // Mostrar notificación
+      // 📢 NOTIFICACIÓN
       const notification = document.createElement('div');
-      notification.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-rpg-gold text-rpg-dark px-8 py-4 rounded-xl font-rpg text-2xl font-bold z-50 animate-bounce shadow-2xl border-4 border-rpg-dark';
-      notification.innerHTML = `🎉 ¡NIVEL ${currentLevel}! 🎉`;
+      notification.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-rpg-gold text-rpg-dark px-8 py-4 rounded-xl font-sans text-2xl font-bold z-50 animate-bounce shadow-2xl border-4 border-rpg-dark';
+      notification.innerHTML = `🎉 NIVEL ${currentLevel} ALCANZADO 🎉`;
       document.body.appendChild(notification);
       
       setTimeout(() => {
@@ -49,13 +54,13 @@ const useLevelUp = (currentLevel, previousLevel) => {
       
       // Resetear el trigger después de un tiempo
       setTimeout(() => {
-        hasTriggered.current = false;
-      }, 1000);
-    } else if (currentLevel <= previousLevel) {
-      // Si el nivel no subió, resetear el trigger
-      hasTriggered.current = false;
+        hasTriggeredRef.current = false;
+      }, 500);
     }
-  }, [currentLevel, previousLevel]);
+    
+    // Actualizar la referencia del nivel anterior
+    previousLevelRef.current = currentLevel;
+  }, [currentLevel]);
 };
 
 export default useLevelUp;
