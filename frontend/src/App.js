@@ -1,5 +1,6 @@
 import { useSwipeable } from 'react-swipeable';
 import React, { useState, useEffect } from 'react';
+import MenuDrawer from './components/MenuDrawer';
 import { useAuth } from './context/AuthContext';
 import AuthForms from './components/AuthForms';
 import QuestCard from './components/QuestCard';
@@ -22,6 +23,7 @@ function App() {
   });
   const [editingQuest, setEditingQuest] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // ===== FUNCIONES DE LOCALSTORAGE =====
   const saveAnonQuestsToLocal = (quests) => {
@@ -334,12 +336,17 @@ const removeChallengeFromQuests = (challengeId) => {
   // Calcular estadísticas
   const totalXP = quests.filter(q => q.completed).reduce((sum, q) => sum + (q.xpReward || 0), 0);
   const level = Math.floor(Math.sqrt(totalXP / 100)) + 1;
+  const [previousLevel, setPreviousLevel] = useState(level);
   const xpForNextLevel = (level * level * 100) - totalXP;
   const completedCount = quests.filter(q => q.completed).length;
 
   // Detectar subida de nivel
-  useLevelUp(level);
+  useLevelUp(level, previousLevel, user?.id || 'anon');
 
+  // Actualizar nivel anterior cuando cambie
+  useEffect(() => {
+    setPreviousLevel(level);
+  }, [level]);
 
   if (authLoading || loading) {
     return (
@@ -365,35 +372,10 @@ const removeChallengeFromQuests = (challengeId) => {
               ⚔️ QuestLog
             </h1>
             <div className="flex items-center gap-4">
-              <button 
-                onClick={() => {
-                  setShowForm(!showForm);
-                  setEditingQuest(null);
-                  setNewQuest({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
-                }}
-                className="btn-primary text-xl"
-              >
-                {showForm ? '✕ Cerrar' : '+ Nueva Misión'}
-              </button>
-              
-              {user ? (
-                <div className="flex items-center gap-4">
-                  <span className="text-rpg-gold">⚔️ {user.username}</span>
-                  <button
-                    onClick={handleLogout}
-                    className="bg-red-500/20 hover:bg-red-500/40 text-red-500 px-4 py-2 rounded-lg"
-                  >
-                    Salir
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowAuth(true)}
-                  className="bg-rpg-gold/20 hover:bg-rpg-gold/40 text-rpg-gold px-4 py-2 rounded-lg"
-                >
-                  Iniciar Sesión
-                </button>
-              )}
+              <MenuDrawer 
+                onOpenAuth={() => setShowAuth(true)} 
+                onMenuStateChange={setIsMenuOpen}
+              />
             </div>
           </div>
 
@@ -549,12 +531,41 @@ const removeChallengeFromQuests = (challengeId) => {
                 quest={quest}
                 onToggle={toggleQuest}
                 onDelete={deleteQuest}
-                onLongPress={handleLongPress}
+                onEdit={(quest) => {
+                  setEditingQuest(quest);
+                  setNewQuest({
+                    title: quest.title,
+                    description: quest.description || '',
+                    xpReward: quest.xpReward,
+                    difficulty: quest.difficulty
+                  });
+                  setShowForm(true);
+                }}
                 getDifficultyColor={getDifficultyColor}
               />
             ))
           )}
         </div>
+        <button
+          onClick={() => {
+            setShowForm(!showForm);
+            setEditingQuest(null);
+            setNewQuest({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
+          }}
+          className={`fixed bottom-8 z-50 bg-rpg-gold hover:bg-yellow-500 text-rpg-dark w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110
+            left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0
+            ${isMenuOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+        >
+          {showForm ? (
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          )}
+        </button>
       </main>
     </div>
   );
