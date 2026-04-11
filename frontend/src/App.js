@@ -228,6 +228,7 @@ function App() {
       subtasks: isMultiRequirement ? subtasks : []
     };
 
+    // Actualizar en servidor (si aplica)
     if (user && token && !editingQuest._id.startsWith('local_')) {
       try {
         await fetch(`${process.env.REACT_APP_API_URL}/api/quests/${editingQuest._id}`, {
@@ -239,38 +240,38 @@ function App() {
           body: JSON.stringify(updatedQuest)
         });
       } catch (error) {
-        console.error('Error al actualizar en servidor:', error);
+        console.error('Error:', error);
       }
     }
 
-    const newQuests = quests.map(q => q._id === editingQuest._id ? updatedQuest : q);
+    // Actualizar estado local
+    const newQuests = quests.map(q => 
+      q._id === editingQuest._id ? updatedQuest : q
+    );
     setQuests(newQuests);
-    
+
+    // Guardar en localStorage
     if (user && token) {
       saveUserQuestsToLocal(user.id, newQuests);
     } else {
       saveAnonQuestsToLocal(newQuests);
     }
-    
-    // ===== RESETEAR COMPLETAMENTE EL FORMULARIO =====
-    setShowForm(false);           // Cerrar formulario
-    setEditingQuest(null);        // Limpiar edición
+
+    // ===== RESETEAR TODO Y CERRAR =====
+    setShowForm(false);
+    setEditingQuest(null);
     setNewQuest({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
-    setIsMultiRequirement(false); // Resetear checkbox
-    setSubtasks([]);              // Vaciar subtareas
-    setNewSubtaskText('');        // Vaciar input de subtarea
+    setIsMultiRequirement(false);
+    setSubtasks([]);
+    setNewSubtaskText('');
   };
 
   // ===== TOGGLE QUEST =====
   const toggleQuest = async (quest) => {
-    console.log('📝 toggleQuest recibió:', quest);
-    
     let updatedQuest;
     
     if (quest.isMultiRequirement && quest.subtasks) {
       const allSubtasksCompleted = quest.subtasks.every(st => st.completed === true);
-      console.log('📊 Subtareas completadas:', allSubtasksCompleted);
-      
       updatedQuest = {
         ...quest,
         completed: allSubtasksCompleted
@@ -278,8 +279,6 @@ function App() {
     } else {
       updatedQuest = { ...quest, completed: !quest.completed };
     }
-    
-    console.log('✅ updatedQuest:', updatedQuest);
     
     // Si no hay cambios, salir
     if (JSON.stringify(quest) === JSON.stringify(updatedQuest)) return;
@@ -659,6 +658,8 @@ const removeChallengeFromQuests = (challengeId) => {
                     xpReward: quest.xpReward,
                     difficulty: quest.difficulty
                   });
+                  setIsMultiRequirement(quest.isMultiRequirement || false);
+                  setSubtasks(quest.subtasks || []);
                   setShowForm(true);
                 }}
                 getDifficultyColor={getDifficultyColor}

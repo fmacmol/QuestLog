@@ -190,20 +190,50 @@ const QuestCard = ({
           )}
         </div>
         
-        {!quest.isMultiRequirement && !localCompleted ? (
-          <span className="flex items-center gap-2 text-yellow-400 font-bold">
-            <span>⏳</span> Pendiente
-          </span>
-        ) : !quest.isMultiRequirement && localCompleted ? (
-          <span className="flex items-center gap-2 text-green-500 font-bold">
-            <span>✅</span> Completada
-          </span>
-        ) : null}
-        
-        {quest.isMultiRequirement && localCompleted && (
-          <span className="flex items-center gap-2 text-green-500 font-bold">
-            <span>✅</span> Completada
-          </span>
+        {!quest.isMultiRequirement && (
+          <>
+            {!localCompleted ? (
+              <span className="flex items-center gap-2 text-yellow-400 font-bold">
+                <span>⏳</span> Pendiente
+              </span>
+            ) : (
+              <span className="flex items-center gap-2 text-green-500 font-bold">
+                <span>✅</span> Completada
+              </span>
+            )}
+          </>
+        )}
+
+        {/* Tarea con MULTIREQUISITOS */}
+        {quest.isMultiRequirement && (
+          <>
+            {localCompleted ? (
+              <span className="flex items-center gap-2 text-green-500 font-bold">
+                <span>✅</span> Completada
+              </span>
+            ) : (
+              // Calcular cuántas subtareas están completadas
+              (() => {
+                const completedCount = localSubtasks.filter(st => st.completed).length;
+                const totalCount = localSubtasks.length;
+                
+                if (completedCount === 0) {
+                  return (
+                    <span className="flex items-center gap-2 text-yellow-400 font-bold">
+                      <span>⏳</span> Pendiente
+                    </span>
+                  );
+                } else if (completedCount < totalCount) {
+                  return (
+                    <span className="flex items-center gap-2 text-blue-400 font-bold">
+                      <span>📋</span> En progreso ({completedCount}/{totalCount})
+                    </span>
+                  );
+                }
+                return null;
+              })()
+            )}
+          </>
         )}
       </div>
     </div>
