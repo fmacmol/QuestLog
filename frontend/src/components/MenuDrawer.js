@@ -47,7 +47,7 @@ const MenuDrawer = ({ onOpenAuth, onMenuStateChange }) => {
                 📊 Estadísticas
             </button>
             <button className="w-full text-gray-300 hover:text-rpg-gold transition-colors">
-                🏆 Logros
+                🐶 Mascota
             </button>
             <button className="w-full text-gray-300 hover:text-rpg-gold transition-colors">
                 ⚙️ Configuración

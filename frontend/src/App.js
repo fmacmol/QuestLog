@@ -27,6 +27,7 @@ function App() {
   const [editingQuest, setEditingQuest] = useState(null);
   const [filter, setFilter] = useState('all');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [refreshChallenges, setRefreshChallenges] = useState(false);
 
   // ===== FUNCIONES DE LOCALSTORAGE =====
   const saveAnonQuestsToLocal = (quests) => {
@@ -308,6 +309,7 @@ function App() {
     });
     
     setQuests(newQuests);
+    setRefreshChallenges(prev => !prev);
     
     // Guardar en localStorage
     if (user && token) {
@@ -318,47 +320,104 @@ function App() {
   };
 
   // ===== DELETE QUEST =====
-  const deleteQuest = (id) => {
-    const newQuests = quests.filter(q => q._id !== id);
-    setQuests(newQuests);
-    
-    // Guardar según el estado del usuario
-    if (user && token) {
-      saveUserQuestsToLocal(user.id, newQuests); // Usuario logueado
-      
-    } else {
-      saveAnonQuestsToLocal(newQuests); // Usuario anónimo
+const deleteQuest = async (id) => {
+  // Buscar la quest antes de eliminarla
+  const questToDelete = quests.find(q => q._id === id);
+  
+  // 1. Si la quest viene de un reto público, notificar al backend
+  if (questToDelete?.fromChallenge && user && token) {
+    try {
+      await fetch(`${process.env.REACT_APP_API_URL}/api/public-challenges/${questToDelete.fromChallenge}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      console.log('Reto cancelado en backend');
+    } catch (error) {
+      console.error('Error al cancelar reto:', error);
     }
-  };
+  }
   
-const addChallengeToQuests = (newQuest, challengeId) => {
-  const questToAdd = {
-    _id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-    ...newQuest,
-    fromChallenge: challengeId,  // Guardamos qué reto original lo creó
-    completed: false,
-    createdAt: new Date().toISOString()
-  };
+  // 2. Si el usuario está logueado y no es una quest local, eliminar del servidor
+  if (user && token && !questToDelete?._id?.startsWith('local_')) {
+    try {
+      await fetch(`${process.env.REACT_APP_API_URL}/api/quests/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      console.log('Quest eliminada del servidor');
+    } catch (error) {
+      console.error('Error al eliminar quest del servidor:', error);
+    }
+  }
   
-  const updatedQuests = [questToAdd, ...quests];
-  setQuests(updatedQuests);
+  // 3. Eliminar la quest del estado local
+  const newQuests = quests.filter(q => q._id !== id);
+  setQuests(newQuests);
   
-  // Guardar según estado del usuario
+  // 4. Guardar en localStorage
   if (user && token) {
-    // Si está logueado, también guardar en servidor
-    fetch(`${process.env.REACT_APP_API_URL}/api/quests`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(newQuest)
-    }).catch(console.error);
-    saveUserQuestsToLocal(user.id, updatedQuests);
+    saveUserQuestsToLocal(user.id, newQuests);
   } else {
-    saveAnonQuestsToLocal(updatedQuests);
+    saveAnonQuestsToLocal(newQuests);
   }
 };
+  
+  const addChallengeToQuests = async (newQuest, challengeId) => {
+    const questToAdd = {
+      _id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+      ...newQuest,
+      fromChallenge: challengeId,
+      completed: false,
+      createdAt: new Date().toISOString()
+    };
+    
+    if (user && token) {
+      // Usuario logueado: guardar en servidor
+      try {
+        const questToSave = {
+          title: newQuest.title,
+          description: newQuest.description,
+          xpReward: newQuest.xpReward,
+          difficulty: newQuest.difficulty,
+          isMultiRequirement: newQuest.isMultiRequirement || false,
+          subtasks: newQuest.subtasks || [],
+          fromChallenge: challengeId
+        };
+        
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(questToSave)
+        });
+        
+        if (!res.ok) throw new Error('Error al guardar en servidor');
+        
+        const savedQuest = await res.json();
+        const updatedQuests = [savedQuest, ...quests];
+        setQuests(updatedQuests);
+        saveUserQuestsToLocal(user.id, updatedQuests);
+        
+      } catch (error) {
+        console.error('Error al guardar reto en servidor:', error);
+        // Fallback: guardar localmente
+        const updatedQuests = [questToAdd, ...quests];
+        setQuests(updatedQuests);
+        saveUserQuestsToLocal(user.id, updatedQuests);
+      }
+    } else {
+      // Usuario anónimo: solo local
+      const updatedQuests = [questToAdd, ...quests];
+      setQuests(updatedQuests);
+      saveAnonQuestsToLocal(updatedQuests);
+    }
+  };
 
 // Eliminar copia de reto cancelado
 const removeChallengeFromQuests = (challengeId) => {
@@ -422,6 +481,15 @@ const removeChallengeFromQuests = (challengeId) => {
     if (filter === 'completed') return quest.completed;
     return true;
   });
+
+  // Calcular IDs de retos aceptados y completados (para el componente CommunityChallenges)
+  const acceptedChallengeIds = quests
+    .filter(q => q.fromChallenge)
+    .map(q => q.fromChallenge);
+
+  const completedChallengeIds = quests
+    .filter(q => q.fromChallenge && q.completed === true)
+    .map(q => q.fromChallenge);
   
   return (
     <div className="min-h-screen bg-gradient-to-b from-rpg-dark to-rpg-purple">
@@ -509,7 +577,9 @@ const removeChallengeFromQuests = (challengeId) => {
         <div className="mb-8">
           <CommunityChallenges 
             onAddToQuests={addChallengeToQuests} 
-            onRemoveFromQuests={removeChallengeFromQuests}  
+            onRemoveFromQuests={removeChallengeFromQuests}
+            refreshTrigger={refreshChallenges}
+            quests={quests}
           />
         </div>
         

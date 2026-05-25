@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-const CommunityChallenges = ({ onAddToQuests, onRemoveFromQuests }) => {
+const CommunityChallenges = ({ 
+  onAddToQuests, 
+  onRemoveFromQuests,
+  refreshTrigger,
+  quests
+ }) => {
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -15,13 +20,20 @@ const CommunityChallenges = ({ onAddToQuests, onRemoveFromQuests }) => {
 
   useEffect(() => {
     fetchChallenges();
-  }, []);
+  }, [refreshTrigger]);
 
   const fetchChallenges = async () => {
     try {
       const res = await fetch(`${process.env.REACT_APP_API_URL}/api/public-challenges`);
       const data = await res.json();
-      setChallenges(data);
+      
+      // Asegurar que acceptedBy existe y tiene el formato correcto
+      const challengesWithAcceptance = data.map(challenge => ({
+        ...challenge,
+        acceptedBy: challenge.acceptedBy || []
+      }));
+      
+      setChallenges(challengesWithAcceptance);
       setLoading(false);
     } catch (error) {
       console.error('Error:', error);
@@ -64,7 +76,6 @@ const CommunityChallenges = ({ onAddToQuests, onRemoveFromQuests }) => {
     }
     
     try {
-      // Llamar al backend para marcar como aceptado
       const res = await fetch(`${process.env.REACT_APP_API_URL}/api/public-challenges/${challenge._id}/accept`, {
         method: 'POST',
         headers: {
@@ -78,6 +89,9 @@ const CommunityChallenges = ({ onAddToQuests, onRemoveFromQuests }) => {
         return;
       }
 
+      // Obtener el reto actualizado del backend
+      const updatedChallengeFromBackend = await res.json();
+
       // Crear copia en quests del usuario
       const newQuest = {
         title: challenge.title,
@@ -86,16 +100,14 @@ const CommunityChallenges = ({ onAddToQuests, onRemoveFromQuests }) => {
         difficulty: challenge.difficulty,
         completed: false,
         createdAt: new Date().toISOString(),
-        fromChallenge: challenge._id  // Guardar referencia
+        fromChallenge: challenge._id
       };
       
       onAddToQuests(newQuest, challenge._id);
       
-      // Actualizar el estado local para mostrar como aceptado
+      // Actualizar el estado local CON EL RETO DEVUELTO POR EL BACKEND
       setChallenges(prev => prev.map(c => 
-        c._id === challenge._id 
-          ? { ...c, acceptedBy: [...(c.acceptedBy || []), { _id: user.id }] }
-          : c
+        c._id === challenge._id ? updatedChallengeFromBackend : c
       ));
       
     } catch (error) {
@@ -138,7 +150,19 @@ const CommunityChallenges = ({ onAddToQuests, onRemoveFromQuests }) => {
   };
 
   const isAccepted = (challenge) => {
-    return challenge.acceptedBy?.some(u => u._id === user?.id);
+    if (!user) return false;
+    // Verificar si existe una quest copia (sin importar si está completada)
+    const hasQuestCopy = quests?.some(q => q.fromChallenge === challenge._id);
+    return hasQuestCopy;
+  };
+
+  const isCompleted = (challenge) => {
+    // Verificar directamente en las quests si hay una copia completada
+    const hasCompletedQuest = quests?.some(q => 
+      q.fromChallenge === challenge._id && q.completed === true
+    );
+    console.log(`🔍 Reto ${challenge.title}: hasCompletedQuest = ${hasCompletedQuest}`);
+    return hasCompletedQuest;
   };
 
   if (loading) return <div className="text-center py-8">Cargando retos...</div>;
@@ -231,27 +255,39 @@ const CommunityChallenges = ({ onAddToQuests, onRemoveFromQuests }) => {
                   </div>
                   
                   {user ? (
-                    accepted ? (
-                      <button
-                        onClick={() => cancelChallenge(challenge)}
-                        className="bg-red-500/20 hover:bg-red-500/40 text-red-400 text-sm px-3 py-1 rounded-lg transition-colors"
-                      >
-                        ✕ Cancelar
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => acceptChallenge(challenge)}
-                        className="btn-secondary text-sm px-3 py-1"
-                      >
-                        + Aceptar
-                      </button>
-                    )
+                    (() => {
+                      const completed = isCompleted(challenge);
+                      const accepted = isAccepted(challenge);
+                      
+                      if (completed) {
+                        return (
+                          <span className="text-blue-400 text-sm px-3 py-1 rounded-lg bg-blue-500/20">
+                            ✅ Completado
+                          </span>
+                        );
+                      } else if (accepted) {
+                        return (
+                          <span className="text-green-400 text-sm px-3 py-1 rounded-lg bg-green-500/20">
+                            ✓ Aceptado
+                          </span>
+                        );
+                      } else {
+                        return (
+                          <button
+                            onClick={() => acceptChallenge(challenge)}
+                            className="btn-secondary text-sm px-3 py-1"
+                          >
+                            + Aceptar
+                          </button>
+                        );
+                      }
+                    })()
                   ) : (
                     <button
                       onClick={() => alert('Inicia sesión para aceptar retos')}
                       className="btn-secondary text-sm px-3 py-1 opacity-50"
                     >
-                     Inicia sesión
+                      Inicia sesión
                     </button>
                   )}
                 </div>

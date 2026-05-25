@@ -133,7 +133,13 @@ const questSchema = new mongoose.Schema({
   subtasks: [{
     text: { type: String, required: true },
     completed: { type: Boolean, default: false }
-  }]
+  }],
+
+  fromChallenge: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'PublicChallenge' 
+  }
+
 });
 
 const Quest = mongoose.model('Quest', questSchema);
@@ -187,7 +193,7 @@ app.put('/api/quests/:id', authenticate, async (req, res) => {
     const quest = await Quest.findOneAndUpdate(
       { _id: req.params.id, userId: req.userId },
       req.body,
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!quest) return res.status(404).json({ error: 'Quest no encontrada' });
     res.json(quest);
@@ -225,7 +231,8 @@ app.get('/api/public-challenges', async (req, res) => {
   try {
     const challenges = await PublicChallenge.find({ isActive: true })
       .sort({ createdAt: -1 })
-      .populate('createdBy', 'username');
+      .populate('createdBy', 'username')
+      .populate('acceptedBy', '_id');
     res.json(challenges);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -240,20 +247,23 @@ app.post('/api/public-challenges/:id/accept', authenticate, async (req, res) => 
       return res.status(404).json({ error: 'Reto no encontrado' });
     }
     
-    // Si el usuario ya lo aceptó, devolver error
     if (challenge.acceptedBy.includes(req.userId)) {
       return res.status(400).json({ error: 'Ya aceptaste este reto' });
     }
     
-    // Añadir usuario a la lista de aceptados
     challenge.acceptedBy.push(req.userId);
     await challenge.save();
     
-    res.json({ success: true, challenge });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    // Devolver el reto actualizado (con populate para que tenga los datos completos)
+    const updatedChallenge = await PublicChallenge.findById(req.params.id)
+      .populate('createdBy', 'username')
+      .populate('acceptedBy', '_id');
+    
+      res.json(updatedChallenge);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 
 // POST cancelar reto (quita el usuario de acceptedBy)
 app.post('/api/public-challenges/:id/cancel', authenticate, async (req, res) => {
