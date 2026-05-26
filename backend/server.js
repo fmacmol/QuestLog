@@ -324,6 +324,83 @@ app.delete('/api/public-challenges/:id', authenticate, async (req, res) => {
   }
 });
 
+// Cambiar contraseña
+app.put('/api/auth/change-password', authenticate, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.userId);
+    
+    const bcrypt = require('bcryptjs');
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Contraseña actual incorrecta' });
+    }
+    
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+    
+    res.json({ message: 'Contraseña actualizada' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Actualizar perfil de usuario
+app.put('/api/auth/update-profile', authenticate, async (req, res) => {
+  try {
+    const { username, currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.userId);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    
+    // Actualizar username
+    if (username) {
+      user.username = username;
+    }
+    
+    // Actualizar contraseña si se proporciona
+    if (currentPassword && newPassword) {
+      const bcrypt = require('bcryptjs');
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      
+      if (!isMatch) {
+        return res.status(401).json({ error: 'Contraseña actual incorrecta' });
+      }
+      
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(newPassword, salt);
+    }
+    
+    await user.save();
+    res.json({ message: 'Perfil actualizado correctamente' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Cambiar nombre de usuario
+app.put('/api/auth/change-username', authenticate, async (req, res) => {
+  try {
+    const { username } = req.body;
+    const existing = await User.findOne({ username, _id: { $ne: req.userId } });
+    if (existing) {
+      return res.status(400).json({ error: 'Nombre de usuario ya existe' });
+    }
+    
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { username },
+      { new: true }
+    );
+    res.json({ username: user.username });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 
 app.listen(PORT, () => {

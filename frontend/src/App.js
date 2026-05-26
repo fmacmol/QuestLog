@@ -6,6 +6,7 @@ import AuthForms from './components/AuthForms';
 import QuestCard from './components/QuestCard';
 import CommunityChallenges from './components/CommunityChallenges';
 import useLevelUp from './hooks/useLevelUp';
+import SettingsModal from './components/SettingsModal';
 
 function App() {
   const { user, token, logout, loading: authLoading } = useAuth();
@@ -28,6 +29,7 @@ function App() {
   const [filter, setFilter] = useState('all');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [refreshChallenges, setRefreshChallenges] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // ===== FUNCIONES DE LOCALSTORAGE =====
   const saveAnonQuestsToLocal = (quests) => {
@@ -503,6 +505,7 @@ const removeChallengeFromQuests = (challengeId) => {
               <MenuDrawer 
                 onOpenAuth={() => setShowAuth(true)} 
                 onMenuStateChange={setIsMenuOpen}
+                onOpenSettings={() => setShowSettings(true)}
               />
             </div>
           </div>
@@ -758,6 +761,11 @@ const removeChallengeFromQuests = (challengeId) => {
           )}
         </button>
       </main>
+      {showSettings && (
+        <SettingsModal 
+          onClose={() => setShowSettings(false)} 
+        />
+      )}
     </div>
   );
 }

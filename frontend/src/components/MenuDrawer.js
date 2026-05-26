@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-const MenuDrawer = ({ onOpenAuth, onMenuStateChange }) => {
+const MenuDrawer = ({ onOpenAuth, onMenuStateChange, onOpenSettings }) => {
   const [isOpen, setIsOpen] = useState(false);
   const { user, logout } = useAuth();
 
@@ -49,7 +49,14 @@ const MenuDrawer = ({ onOpenAuth, onMenuStateChange }) => {
             <button className="w-full text-gray-300 hover:text-rpg-gold transition-colors">
                 🐶 Mascota
             </button>
-            <button className="w-full text-gray-300 hover:text-rpg-gold transition-colors">
+            <button
+              onClick={() => {
+                // Abrir configuración
+                onOpenSettings();
+                closeMenu();
+              }}
+              className="w-full text-left px-4 py-2 text-gray-300 hover:bg-rpg-dark/50 rounded-lg transition-colors"
+            >
                 ⚙️ Configuración
             </button>
           {user ? (
