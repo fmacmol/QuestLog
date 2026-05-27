@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
+import { usePreferences } from '../context/PreferencesContext';
 import confetti from 'canvas-confetti';
 
 const useLevelUp = (currentLevel) => {
+  const { soundEnabled, confettiEnabled, animationEnabled } = usePreferences();
   const hasTriggered = useRef(false);
   const previousLevel = useRef(currentLevel);
   const sessionKey = 'questlog_celebrated_levels';
@@ -11,6 +13,10 @@ const useLevelUp = (currentLevel) => {
     const stored = sessionStorage.getItem(sessionKey);
     return stored ? new Set(JSON.parse(stored)) : new Set();
   };
+
+
+
+useEffect(() => {
 
   const saveCelebratedLevel = (level) => {
     const levels = getCelebratedLevels();
@@ -26,13 +32,16 @@ const useLevelUp = (currentLevel) => {
     return getCelebratedLevels().has(level);
   };
 
-  useEffect(() => {
+
     // Detectar si es la primera carga
     if (!initialLoadDone.current) {
       initialLoadDone.current = true;
       previousLevel.current = currentLevel;
       return;
     }
+
+    // Si las animaciones están desactivadas, no hacer nada
+    if (!animationEnabled) return;
 
     // Detectar si bajó de nivel
     const wentDown = currentLevel < previousLevel.current;
@@ -51,32 +60,38 @@ const useLevelUp = (currentLevel) => {
       hasTriggered.current = true;
       saveCelebratedLevel(currentLevel);
 
-      // 🎉 CELEBRAR
-      confetti({
-        particleCount: 150,
-        spread: 70,
-        origin: { y: 0.6 },
-        startVelocity: 20,
-        colors: ['#e4b363', '#2d1b3c', '#f5c542', '#ffd700']
-      });
+      // 🎉 CONFETI (solo si está activado)
+      if (confettiEnabled) {
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 },
+          startVelocity: 20,
+          colors: ['#e4b363', '#2d1b3c', '#f5c542', '#ffd700']
+        });
+        
+        confetti({
+          particleCount: 100,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0, y: 0.7 }
+        });
+        confetti({
+          particleCount: 100,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1, y: 0.7 }
+        });
+      }
       
-      confetti({
-        particleCount: 100,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0, y: 0.7 }
-      });
-      confetti({
-        particleCount: 100,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1, y: 0.7 }
-      });
+      // 🔊 SONIDO (solo si está activado)
+      if (soundEnabled) {
+        const audio = new Audio('/sounds/level-up.mp3');
+        audio.volume = 0.5;
+        audio.play().catch(e => console.log('Error reproduciendo sonido:', e));
+      }
       
-      const audio = new Audio('/sounds/level-up.mp3');
-      audio.volume = 0.5;
-      audio.play().catch(e => console.log('Error:', e));
-      
+      // 📢 NOTIFICACIÓN (siempre visible)
       const notification = document.createElement('div');
       notification.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-rpg-gold text-rpg-dark px-8 py-4 rounded-xl font-rpg text-2xl font-bold z-50 animate-bounce shadow-2xl border-4 border-rpg-dark';
       notification.innerHTML = `🎉 ¡NIVEL ${currentLevel}! 🎉`;
@@ -92,7 +107,7 @@ const useLevelUp = (currentLevel) => {
     }
 
     previousLevel.current = currentLevel;
-  }, [currentLevel]);
+  }, [currentLevel, soundEnabled, confettiEnabled, animationEnabled]);
 };
 
 export default useLevelUp;

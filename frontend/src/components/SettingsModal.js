@@ -1,29 +1,23 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { usePreferences } from '../context/PreferencesContext';
 
 const SettingsModal = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState('profile');
   const { user, token } = useAuth();
+  const { soundEnabled, confettiEnabled, animationEnabled, theme, savePreferences } = usePreferences();
   
-  // Estados para cada pestaña
+  // Estados para perfil
   const [username, setUsername] = useState(user?.username || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
-  // Estados para preferencias (desde localStorage)
-  const [soundEnabled, setSoundEnabled] = useState(
-    localStorage.getItem('questlog_sound_enabled') !== 'false'
-  );
-  const [confettiEnabled, setConfettiEnabled] = useState(
-    localStorage.getItem('questlog_confetti_enabled') !== 'false'
-  );
-  const [animationEnabled, setAnimationEnabled] = useState(
-    localStorage.getItem('questlog_animation_enabled') !== 'false'
-  );
-  const [theme, setTheme] = useState(
-    localStorage.getItem('questlog_theme') || 'dark'
-  );
+  // Estados locales para preferencias
+  const [localSound, setLocalSound] = useState(soundEnabled);
+  const [localConfetti, setLocalConfetti] = useState(confettiEnabled);
+  const [localAnimation, setLocalAnimation] = useState(animationEnabled);
+  const [localTheme, setLocalTheme] = useState(theme);
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -61,18 +55,12 @@ const SettingsModal = ({ onClose }) => {
   };
 
   const handleSavePreferences = () => {
-    localStorage.setItem('questlog_sound_enabled', soundEnabled);
-    localStorage.setItem('questlog_confetti_enabled', confettiEnabled);
-    localStorage.setItem('questlog_animation_enabled', animationEnabled);
-    localStorage.setItem('questlog_theme', theme);
-    
-    // Aplicar tema
-    if (theme === 'light') {
-      document.documentElement.classList.add('light-mode');
-    } else {
-      document.documentElement.classList.remove('light-mode');
-    }
-    
+    savePreferences({
+      soundEnabled: localSound,
+      confettiEnabled: localConfetti,
+      animationEnabled: localAnimation,
+      theme: localTheme
+    });
     alert('Preferencias guardadas');
   };
 
@@ -121,7 +109,7 @@ const SettingsModal = ({ onClose }) => {
                   : 'text-gray-300 hover:bg-rpg-gold/10'
               }`}
             >
-              🔔 Notificaciones
+              🔔 Preferencias
             </button>
           </div>
           
@@ -192,8 +180,8 @@ const SettingsModal = ({ onClose }) => {
                     <input
                       type="radio"
                       name="theme"
-                      checked={theme === 'dark'}
-                      onChange={() => setTheme('dark')}
+                      checked={localTheme === 'dark'}
+                      onChange={() => setLocalTheme('dark')}
                       className="w-4 h-4"
                     />
                   </label>
@@ -202,8 +190,8 @@ const SettingsModal = ({ onClose }) => {
                     <input
                       type="radio"
                       name="theme"
-                      checked={theme === 'light'}
-                      onChange={() => setTheme('light')}
+                      checked={localTheme === 'light'}
+                      onChange={() => setLocalTheme('light')}
                       className="w-4 h-4"
                     />
                   </label>
@@ -213,12 +201,12 @@ const SettingsModal = ({ onClose }) => {
                   onClick={handleSavePreferences}
                   className="btn-primary w-full py-2 mt-4"
                 >
-                  💾 Aplicar tema
+                  💾 Guardar preferencias
                 </button>
               </div>
             )}
             
-            {/* Notificaciones (Preferencias) */}
+            {/* Preferencias */}
             {activeTab === 'notifications' && (
               <div className="space-y-4">
                 <h3 className="text-xl font-bold text-rpg-gold mb-4">🔔 Preferencias</h3>
@@ -227,8 +215,8 @@ const SettingsModal = ({ onClose }) => {
                   <span className="text-gray-300">🔊 Sonido al subir de nivel</span>
                   <input
                     type="checkbox"
-                    checked={soundEnabled}
-                    onChange={(e) => setSoundEnabled(e.target.checked)}
+                    checked={localSound}
+                    onChange={(e) => setLocalSound(e.target.checked)}
                     className="w-4 h-4"
                   />
                 </label>
@@ -237,8 +225,8 @@ const SettingsModal = ({ onClose }) => {
                   <span className="text-gray-300">🎉 Confeti al subir de nivel</span>
                   <input
                     type="checkbox"
-                    checked={confettiEnabled}
-                    onChange={(e) => setConfettiEnabled(e.target.checked)}
+                    checked={localConfetti}
+                    onChange={(e) => setLocalConfetti(e.target.checked)}
                     className="w-4 h-4"
                   />
                 </label>
@@ -247,8 +235,8 @@ const SettingsModal = ({ onClose }) => {
                   <span className="text-gray-300">✨ Animaciones de celebración</span>
                   <input
                     type="checkbox"
-                    checked={animationEnabled}
-                    onChange={(e) => setAnimationEnabled(e.target.checked)}
+                    checked={localAnimation}
+                    onChange={(e) => setLocalAnimation(e.target.checked)}
                     className="w-4 h-4"
                   />
                 </label>

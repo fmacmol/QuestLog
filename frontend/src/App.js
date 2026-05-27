@@ -1,4 +1,4 @@
-import { useSwipeable } from 'react-swipeable';
+//import { useSwipeable } from 'react-swipeable';
 import React, { useState, useEffect } from 'react';
 import MenuDrawer from './components/MenuDrawer';
 import { useAuth } from './context/AuthContext';
@@ -9,13 +9,13 @@ import useLevelUp from './hooks/useLevelUp';
 import SettingsModal from './components/SettingsModal';
 
 function App() {
-  const { user, token, logout, loading: authLoading } = useAuth();
+  const { user, token, loading: authLoading } = useAuth();
   const [showAuth, setShowAuth] = useState(false);
   const [quests, setQuests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [swipedQuestId, setSwipedQuestId] = useState(null);
+  //const [swipedQuestId, setSwipedQuestId] = useState(null);
   const [newQuest, setNewQuest] = useState({
     title: '',
     description: '',
@@ -112,12 +112,12 @@ function App() {
   }, [isLoggingOut, user, token]);
 
   // ===== HANDLE LOGOUT =====
-  const handleLogout = () => {
+  /*const handleLogout = () => {
     // NO guardar las quests actuales en anónimo (son del usuario)
     // Solo marcar logout y llamar a logout()
     setIsLoggingOut(true);
     logout();
-  };
+  };*/
 
   // ===== HANDLE INPUT CHANGE =====
   const handleInputChange = (e) => {
@@ -434,7 +434,7 @@ const removeChallengeFromQuests = (challengeId) => {
 };
 
   // ===== LONG PRESS HANDLER =====
-  const handleLongPress = (quest) => {
+  /*const handleLongPress = (quest) => {
     setEditingQuest(quest);
     setNewQuest({
       title: quest.title,
@@ -443,7 +443,7 @@ const removeChallengeFromQuests = (challengeId) => {
       difficulty: quest.difficulty
     });
     setShowForm(true);
-  };
+  };*/
 
   const getDifficultyColor = (difficulty) => {
     switch(difficulty) {
@@ -485,13 +485,13 @@ const removeChallengeFromQuests = (challengeId) => {
   });
 
   // Calcular IDs de retos aceptados y completados (para el componente CommunityChallenges)
-  const acceptedChallengeIds = quests
+  /*const acceptedChallengeIds = quests
     .filter(q => q.fromChallenge)
-    .map(q => q.fromChallenge);
+    .map(q => q.fromChallenge);*/
 
-  const completedChallengeIds = quests
+  /*const completedChallengeIds = quests
     .filter(q => q.fromChallenge && q.completed === true)
-    .map(q => q.fromChallenge);
+    .map(q => q.fromChallenge);*/
   
   return (
     <div className="min-h-screen bg-gradient-to-b from-rpg-dark to-rpg-purple">
