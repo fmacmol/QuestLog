@@ -71,7 +71,7 @@ const CommunityChallenges = ({
       setChallenges([saved, ...challenges]);
       setShowCreateForm(false);
       setNewChallenge({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
-      showToast('✅ Reto publicado con éxito', 'success');
+      showToast('Reto publicado con éxito', 'success');
       
     } catch (error) {
       console.debug('Error al crear reto');
@@ -84,15 +84,29 @@ const CommunityChallenges = ({
       return;
     }
     
+    // Verificar si ya está aceptado
+    const alreadyAccepted = quests?.some(q => q.fromChallenge === challenge._id);
+    if (alreadyAccepted) {
+      showToast('Ya has aceptado este reto', 'warning');
+      return;
+    }
+    
     try {
-      const updatedChallenge = await safeFetch(
-        `${process.env.REACT_APP_API_URL}/api/public-challenges/${challenge._id}/accept`,
-        {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` }
-        },
-        showToast
-      );
+      // FETCH DIRECTO para aceptar el reto (sin safeFetch)
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/public-challenges/${challenge._id}/accept`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Error al aceptar reto');
+      }
+      
+      const updatedChallenge = await res.json();
 
       // Crear copia en quests del usuario
       const newQuest = {
@@ -111,10 +125,10 @@ const CommunityChallenges = ({
       setChallenges(prev => prev.map(c => 
         c._id === challenge._id ? updatedChallenge : c
       ));
-      showToast('✅ Reto aceptado con éxito', 'success');
       
     } catch (error) {
-      console.debug('Error al aceptar reto');
+      console.error('Error:', error);
+      showToast(error.message || 'Error al aceptar reto', 'error');
     }
   };
 

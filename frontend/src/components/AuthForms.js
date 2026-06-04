@@ -41,7 +41,7 @@ const AuthForms = ({ onClose }) => {
       
       // Éxito
       login(data.user, data.token);
-      showToast(isLogin ? '✅ Sesión iniciada con éxito' : '✅ Registro exitoso', 'success');
+      showToast(isLogin ? 'Sesión iniciada con éxito' : 'Registro exitoso', 'success');
       
       if (onClose) onClose();
       

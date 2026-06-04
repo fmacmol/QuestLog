@@ -142,22 +142,29 @@ function App() {
 
     if (user && token) {
       try {
-        const savedQuest = await safeFetch(
-          `${process.env.REACT_APP_API_URL}/api/quests`,
-          {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify(questData)
+        // FETCH DIRECTO (sin safeFetch)
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
-          showToast
-        );
-        
+          body: JSON.stringify(questData)
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Error al guardar en servidor');
+        }
+
+        const savedQuest = await res.json();
         const newQuests = [savedQuest, ...quests];
         setQuests(newQuests);
         saveUserQuestsToLocal(user.id, newQuests);
         showToast('Misión creada con éxito', 'success');
         
       } catch (error) {
+        showToast(error.message || 'Error al guardar en servidor', 'error');
         // Fallback: guardar localmente
         const tempQuest = {
           _id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
@@ -168,7 +175,6 @@ function App() {
         const newQuests = [tempQuest, ...quests];
         setQuests(newQuests);
         saveAnonQuestsToLocal(newQuests);
-        showToast('Guardado localmente', 'warning');
       }
     } else {
       // Modo anónimo
@@ -400,33 +406,40 @@ function App() {
           fromChallenge: challengeId
         };
         
-        const savedQuest = await safeFetch(
-          `${process.env.REACT_APP_API_URL}/api/quests`,
-          {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify(questToSave)
+        // FETCH DIRECTO (sin safeFetch)
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
-          showToast
-        );
+          body: JSON.stringify(questToSave)
+        });
         
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Error al guardar en servidor');
+        }
+        
+        const savedQuest = await res.json();
         const updatedQuests = [savedQuest, ...quests];
         setQuests(updatedQuests);
         saveUserQuestsToLocal(user.id, updatedQuests);
-        showToast('✅ Reto aceptado con éxito', 'success');
+        showToast('Reto aceptado con éxito', 'success');
         
       } catch (error) {
+        console.error('Error:', error);
         // Fallback local
         const updatedQuests = [questToAdd, ...quests];
         setQuests(updatedQuests);
         saveUserQuestsToLocal(user.id, updatedQuests);
-        showToast('⚠️ Reto guardado localmente (sin conexión)', 'warning');
+        showToast('Reto guardado localmente (sin conexión)', 'warning');
       }
     } else {
       const updatedQuests = [questToAdd, ...quests];
       setQuests(updatedQuests);
       saveAnonQuestsToLocal(updatedQuests);
-      showToast('✅ Reto aceptado (modo local)', 'success');
+      showToast('Reto aceptado (modo local)', 'success');
     }
   };
 
