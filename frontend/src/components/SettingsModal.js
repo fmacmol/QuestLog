@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { usePreferences } from '../context/PreferencesContext';
+import { useToast } from '../context/ToastContext';
 
 const SettingsModal = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState('profile');
   const { user, token } = useAuth();
   const { soundEnabled, confettiEnabled, animationEnabled, theme, savePreferences } = usePreferences();
+  const { showToast } = useToast();
   
   // Estados para perfil
   const [username, setUsername] = useState(user?.username || '');
@@ -22,7 +24,7 @@ const SettingsModal = ({ onClose }) => {
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      alert('Las contraseñas no coinciden');
+      showToast('Las contraseñas no coinciden', 'error');
       return;
     }
     
@@ -41,13 +43,13 @@ const SettingsModal = ({ onClose }) => {
       });
       
       if (res.ok) {
-        alert('Perfil actualizado correctamente');
+        showToast('Perfil actualizado correctamente', 'success');
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
       } else {
         const error = await res.json();
-        alert(error.error || 'Error al actualizar perfil');
+        showToast(error.error || 'Error al actualizar perfil', 'error');
       }
     } catch (error) {
       console.error('Error:', error);
@@ -61,7 +63,7 @@ const SettingsModal = ({ onClose }) => {
       animationEnabled: localAnimation,
       theme: localTheme
     });
-    alert('Preferencias guardadas');
+    showToast('Preferencias guardadas', 'success');
   };
 
   return (

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { usePreferences } from '../context/PreferencesContext';
 import confetti from 'canvas-confetti';
+import { useToast } from '../context/ToastContext';
 
 const useLevelUp = (currentLevel) => {
   const { soundEnabled, confettiEnabled, animationEnabled } = usePreferences();
@@ -8,6 +9,7 @@ const useLevelUp = (currentLevel) => {
   const previousLevel = useRef(currentLevel);
   const sessionKey = 'questlog_celebrated_levels';
   const initialLoadDone = useRef(false);
+  const { showToast } = useToast();
 
   const getCelebratedLevels = () => {
     const stored = sessionStorage.getItem(sessionKey);
@@ -88,7 +90,7 @@ useEffect(() => {
       if (soundEnabled) {
         const audio = new Audio('/sounds/level-up.mp3');
         audio.volume = 0.5;
-        audio.play().catch(e => console.log('Error reproduciendo sonido:', e));
+        audio.play().catch(e => showToast('Error al reproducir sonido', 'error'));
       }
       
       // 📢 NOTIFICACIÓN (siempre visible)

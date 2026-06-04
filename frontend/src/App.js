@@ -7,6 +7,8 @@ import QuestCard from './components/QuestCard';
 import CommunityChallenges from './components/CommunityChallenges';
 import useLevelUp from './hooks/useLevelUp';
 import SettingsModal from './components/SettingsModal';
+import { useToast } from './context/ToastContext';
+import { safeFetch } from './utils/errorHandler';
 
 function App() {
   const { user, token, loading: authLoading } = useAuth();
@@ -30,6 +32,7 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [refreshChallenges, setRefreshChallenges] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const { showToast } = useToast();
 
   // ===== FUNCIONES DE LOCALSTORAGE =====
   const saveAnonQuestsToLocal = (quests) => {
@@ -59,37 +62,33 @@ function App() {
       setLoading(true);
       
       if (user && token) {
-        console.log('👤 Usuario logueado, cargando de servidor...');
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+        // Intentar cargar del servidor con safeFetch
+        const data = await safeFetch(
+          `${process.env.REACT_APP_API_URL}/api/quests`,
+          { headers: { 'Authorization': `Bearer ${token}` } },
+          null // No mostrar toast aquí, lo manejamos nosotros
+        ).catch(async (error) => {
+          // Si falla, cargar backup local
+          showToast('Usando copia local de seguridad', 'warning');
+          const backup = loadUserQuestsFromLocal(user.id);
+          setQuests(backup);
+          saveUserQuestsToLocal(user.id, backup);
+          return null;
         });
         
-        if (!res.ok) throw new Error('Error al cargar del servidor');
-        
-        const data = await res.json();
-        console.log('Quests del servidor:', data);
-        setQuests(data);
-        saveUserQuestsToLocal(user.id, data);
+        if (data) {
+          setQuests(data);
+          saveUserQuestsToLocal(user.id, data);
+        }
       } 
       else {
-        console.log('Usuario anónimo, cargando de localStorage...');
         const anonQuests = loadAnonQuestsFromLocal();
-        console.log('Quests anónimas:', anonQuests);
         setQuests(anonQuests);
       }
       
       setLoading(false);
     } catch (error) {
-      console.error('Error:', error);
-      
-      if (user && token) {
-        const backup = loadUserQuestsFromLocal(user.id);
-        setQuests(backup);
-      } else {
-        const anonQuests = loadAnonQuestsFromLocal();
-        setQuests(anonQuests);
-      }
-      
+      // Error ya manejado en safeFetch o en el catch interno
       setLoading(false);
     }
   };
@@ -104,7 +103,7 @@ function App() {
   // Efecto para manejar el logout
   useEffect(() => {
     if (isLoggingOut && !user && !token) {
-      console.log('Logout completado, cargando anónimo...');
+      showToast('Sesión cerrada con éxito', 'success');
       const anonQuests = loadAnonQuestsFromLocal();
       setQuests(anonQuests);
       setIsLoggingOut(false);
@@ -143,24 +142,22 @@ function App() {
 
     if (user && token) {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+        const savedQuest = await safeFetch(
+          `${process.env.REACT_APP_API_URL}/api/quests`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(questData)
           },
-          body: JSON.stringify(questData)
-        });
-
-        if (!res.ok) throw new Error('Error al guardar en servidor');
-
-        const savedQuest = await res.json();
+          showToast
+        );
+        
         const newQuests = [savedQuest, ...quests];
         setQuests(newQuests);
         saveUserQuestsToLocal(user.id, newQuests);
+        showToast('Misión creada con éxito', 'success');
         
       } catch (error) {
-        console.error('Error al guardar en servidor:', error);
         // Fallback: guardar localmente
         const tempQuest = {
           _id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
@@ -171,6 +168,7 @@ function App() {
         const newQuests = [tempQuest, ...quests];
         setQuests(newQuests);
         saveAnonQuestsToLocal(newQuests);
+        showToast('Guardado localmente', 'warning');
       }
     } else {
       // Modo anónimo
@@ -183,6 +181,7 @@ function App() {
       const newQuests = [tempQuest, ...quests];
       setQuests(newQuests);
       saveAnonQuestsToLocal(newQuests);
+      showToast('Misión creada', 'success');
     }
 
     // Resetear formulario
@@ -213,9 +212,6 @@ function App() {
     setSubtasks(newSubtasks);
   };
 
-
-
-
   // ===== UPDATE QUEST =====
   const updateQuest = async (e) => {
     e.preventDefault();
@@ -234,16 +230,18 @@ function App() {
     // Actualizar en servidor (si aplica)
     if (user && token && !editingQuest._id.startsWith('local_')) {
       try {
-        await fetch(`${process.env.REACT_APP_API_URL}/api/quests/${editingQuest._id}`, {
-          method: 'PUT',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+        await safeFetch(
+          `${process.env.REACT_APP_API_URL}/api/quests/${editingQuest._id}`,
+          {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(updatedQuest)
           },
-          body: JSON.stringify(updatedQuest)
-        });
+          showToast
+        );
+        showToast('Misión actualizada con éxito', 'success');
       } catch (error) {
-        console.error('Error:', error);
+        showToast('Cambios guardados solo localmente', 'warning');
       }
     }
 
@@ -260,7 +258,7 @@ function App() {
       saveAnonQuestsToLocal(newQuests);
     }
 
-    // ===== RESETEAR TODO Y CERRAR =====
+    // RESETEAR TODO Y CERRAR
     setShowForm(false);
     setEditingQuest(null);
     setNewQuest({ title: '', description: '', xpReward: 100, difficulty: 'Media' });
@@ -289,20 +287,21 @@ function App() {
     // Actualizar en servidor (si aplica)
     if (user && token && !quest._id.startsWith('local_')) {
       try {
-        await fetch(`${process.env.REACT_APP_API_URL}/api/quests/${quest._id}`, {
-          method: 'PUT',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+        await safeFetch(
+          `${process.env.REACT_APP_API_URL}/api/quests/${quest._id}`,
+          {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(updatedQuest)
           },
-          body: JSON.stringify(updatedQuest)
-        });
+          null
+        );
       } catch (error) {
-        console.error('Error:', error);
+        console.debug('Error al sincronizar:', error.message);
       }
     }
     
-    // Actualizar estado local - CREAR NUEVO ARRAY
+    // Actualizar estado local
     const newQuests = quests.map(q => {
       if (q._id === quest._id) {
         return updatedQuest;
@@ -322,51 +321,63 @@ function App() {
   };
 
   // ===== DELETE QUEST =====
-const deleteQuest = async (id) => {
-  // Buscar la quest antes de eliminarla
-  const questToDelete = quests.find(q => q._id === id);
-  
-  // 1. Si la quest viene de un reto público, notificar al backend
-  if (questToDelete?.fromChallenge && user && token) {
-    try {
-      await fetch(`${process.env.REACT_APP_API_URL}/api/public-challenges/${questToDelete.fromChallenge}/cancel`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      console.log('Reto cancelado en backend');
-    } catch (error) {
-      console.error('Error al cancelar reto:', error);
+  const deleteQuest = async (id) => {
+    const questToDelete = quests.find(q => q._id === id);
+    const errors = [];
+    let isChallenge = false;
+    
+    // 1. Si la quest viene de un reto público, notificar al backend
+    if (questToDelete?.fromChallenge && user && token) {
+      try {
+        await safeFetch(
+          `${process.env.REACT_APP_API_URL}/api/public-challenges/${questToDelete.fromChallenge}/cancel`,
+          { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } },
+          null // No mostrar toast aquí, acumulamos error
+        );
+        isChallenge = true;
+      } catch (error) {
+        errors.push('❌ Error al cancelar el reto');
+      }
     }
-  }
-  
-  // 2. Si el usuario está logueado y no es una quest local, eliminar del servidor
-  if (user && token && !questToDelete?._id?.startsWith('local_')) {
-    try {
-      await fetch(`${process.env.REACT_APP_API_URL}/api/quests/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      console.log('Quest eliminada del servidor');
-    } catch (error) {
-      console.error('Error al eliminar quest del servidor:', error);
+    
+    // 2. Si el usuario está logueado y no es una quest local, eliminar del servidor
+    if (user && token && !questToDelete?._id?.startsWith('local_')) {
+      try {
+        await safeFetch(
+          `${process.env.REACT_APP_API_URL}/api/quests/${id}`,
+          { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } },
+          null
+        );
+      } catch (error) {
+        errors.push('❌ Error al eliminar la misión del servidor');
+      }
     }
-  }
-  
-  // 3. Eliminar la quest del estado local
-  const newQuests = quests.filter(q => q._id !== id);
-  setQuests(newQuests);
-  
-  // 4. Guardar en localStorage
-  if (user && token) {
-    saveUserQuestsToLocal(user.id, newQuests);
-  } else {
-    saveAnonQuestsToLocal(newQuests);
-  }
-};
+    
+    // 3. Si hay errores, mostrarlos y NO continuar
+    if (errors.length > 0) {
+      const errorMessage = errors.join('\n');
+      showToast(errorMessage, 'error', 5000);
+      return;
+    }
+    
+    // 4. Eliminar localmente (solo si todo OK)
+    const newQuests = quests.filter(q => q._id !== id);
+    setQuests(newQuests);
+    
+    // 5. Guardar en localStorage
+    if (user && token) {
+      saveUserQuestsToLocal(user.id, newQuests);
+    } else {
+      saveAnonQuestsToLocal(newQuests);
+    }
+    
+    // 6. Un solo mensaje de éxito
+    if (isChallenge) {
+      showToast(`Reto "${questToDelete.title}" eliminado`, 'success');
+    } else {
+      showToast(`Misión "${questToDelete.title}" eliminada`, 'success');
+    }
+  };
   
   const addChallengeToQuests = async (newQuest, challengeId) => {
     const questToAdd = {
@@ -378,7 +389,6 @@ const deleteQuest = async (id) => {
     };
     
     if (user && token) {
-      // Usuario logueado: guardar en servidor
       try {
         const questToSave = {
           title: newQuest.title,
@@ -390,48 +400,47 @@ const deleteQuest = async (id) => {
           fromChallenge: challengeId
         };
         
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/quests`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+        const savedQuest = await safeFetch(
+          `${process.env.REACT_APP_API_URL}/api/quests`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(questToSave)
           },
-          body: JSON.stringify(questToSave)
-        });
+          showToast
+        );
         
-        if (!res.ok) throw new Error('Error al guardar en servidor');
-        
-        const savedQuest = await res.json();
         const updatedQuests = [savedQuest, ...quests];
         setQuests(updatedQuests);
         saveUserQuestsToLocal(user.id, updatedQuests);
+        showToast('✅ Reto aceptado con éxito', 'success');
         
       } catch (error) {
-        console.error('Error al guardar reto en servidor:', error);
-        // Fallback: guardar localmente
+        // Fallback local
         const updatedQuests = [questToAdd, ...quests];
         setQuests(updatedQuests);
         saveUserQuestsToLocal(user.id, updatedQuests);
+        showToast('⚠️ Reto guardado localmente (sin conexión)', 'warning');
       }
     } else {
-      // Usuario anónimo: solo local
       const updatedQuests = [questToAdd, ...quests];
       setQuests(updatedQuests);
       saveAnonQuestsToLocal(updatedQuests);
+      showToast('✅ Reto aceptado (modo local)', 'success');
     }
   };
 
-// Eliminar copia de reto cancelado
-const removeChallengeFromQuests = (challengeId) => {
-  const updatedQuests = quests.filter(q => q.fromChallenge !== challengeId);
-  setQuests(updatedQuests);
-  
-  if (user && token) {
-    saveUserQuestsToLocal(user.id, updatedQuests);
-  } else {
-    saveAnonQuestsToLocal(updatedQuests);
-  }
-};
+  // Eliminar copia de reto cancelado
+  const removeChallengeFromQuests = (challengeId) => {
+    const updatedQuests = quests.filter(q => q.fromChallenge !== challengeId);
+    setQuests(updatedQuests);
+    
+    if (user && token) {
+      saveUserQuestsToLocal(user.id, updatedQuests);
+    } else {
+      saveAnonQuestsToLocal(updatedQuests);
+    }
+  };
 
   // ===== LONG PRESS HANDLER =====
   /*const handleLongPress = (quest) => {

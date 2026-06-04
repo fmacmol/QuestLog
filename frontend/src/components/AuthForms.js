@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { safeFetch } from '../utils/errorHandler';
 
 const AuthForms = ({ onClose }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -8,10 +10,10 @@ const AuthForms = ({ onClose }) => {
     email: '',
     password: ''
   });
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
   const { login } = useAuth();
+  const { showToast } = useToast();
 
   const handleChange = (e) => {
     setFormData({
@@ -22,34 +24,30 @@ const AuthForms = ({ onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
     const endpoint = isLogin ? 'login' : 'register';
     
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
+      const data = await safeFetch(
+        `${process.env.REACT_APP_API_URL}/api/auth/${endpoint}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        },
+        showToast
+      );
       
-      const data = await res.json();
-      console.log('📡 Respuesta del servidor en login/register:', data);
-      
-      if (!res.ok) {
-        throw new Error(data.error || 'Error en autenticación');
-      }
-      
-      // Guardar usuario y token en contexto
+      // Éxito
       login(data.user, data.token);
-      
-      // Sincronizar quests locales (lo haremos después)
+      showToast(isLogin ? '✅ Sesión iniciada con éxito' : '✅ Registro exitoso', 'success');
       
       if (onClose) onClose();
       
-    } catch (err) {
-      setError(err.message);
+    } catch (error) {
+      // El error ya se mostró en safeFetch
+      console.debug('Error en autenticación');
     } finally {
       setLoading(false);
     }
@@ -61,12 +59,6 @@ const AuthForms = ({ onClose }) => {
         <h2 className="font-rpg text-3xl text-rpg-gold text-center mb-6">
           {isLogin ? '🔐 Iniciar Sesión' : '📝 Registrarse'}
         </h2>
-        
-        {error && (
-          <div className="bg-red-500/20 border border-red-500 text-red-500 p-3 rounded-lg mb-4">
-            {error}
-          </div>
-        )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
