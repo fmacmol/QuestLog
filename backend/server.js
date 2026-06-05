@@ -41,7 +41,6 @@ const User = require('./models/User');
 // Registro
 app.post('/api/auth/register', async (req, res) => {
   try {
-    console.log('Registro intentado con:', req.body);
     
     const { username, email, password } = req.body;
     
@@ -83,11 +82,9 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log('Login intentado para:', email);
     
     const user = await User.findOne({ email });
     if (!user) {
-      console.log('Usuario no encontrado');
       return res.status(401).json({ error: 'Email o contraseña incorrectos' });
     }
     
@@ -101,7 +98,6 @@ app.post('/api/auth/login', async (req, res) => {
     
     // Crear token
     const token = jwt.sign({ userId: user._id }, SECRET_KEY);
-    console.log('Login exitoso para:', user.username);
     
     res.json({ 
       token, 

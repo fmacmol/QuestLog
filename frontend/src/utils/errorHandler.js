@@ -1,12 +1,6 @@
-// src/utils/errorHandler.js
-
-/**
- * Traduce errores técnicos a mensajes amigables en español
- * (sin emojis, porque el toast ya los añade según el tipo)
- */
 export const translateError = (error) => {
   // Errores de red/conexión
-  if (error.message === 'Failed to fetch') {
+  if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
     return 'No se pudo conectar con el servidor. ¿El backend está funcionando?';
   }
   if (error.message.includes('NetworkError')) {
@@ -43,32 +37,37 @@ export const translateError = (error) => {
     return 'Error interno del servidor. Inténtalo más tarde';
   }
   
-  return 'Error desconocido';
+  // Si no coincide con nada, devolvemos el mensaje original del servidor o uno por defecto
+  return error.message || 'Error desconocido';
 };
 
 /**
  * Fetch con manejo de errores integrado
+ * AHORA ACEPTA showToast Y autoShowToast
  */
-export const safeFetch = async (url, options = {}) => {
+export const safeFetch = async (url, options = {}, showToast = null, autoShowToast = true) => {
   try {
     const response = await fetch(url, options);
 
-    // Si el servidor responde, pero con un código de error (400, 401, 500, etc.)
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Error HTTP: ${response.status}`);
+      // Lanzamos el error original que manda tu backend
+      throw new Error(errorData.error || errorData.message || `Error HTTP: ${response.status}`);
     }
 
     return await response.json();
 
   } catch (error) {
-    // AQUÍ ESTÁ LA CLAVE: Capturamos el error de red nativo del navegador
-    if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
-      throw new Error("No se pudo conectar con el servidor. ¿El backend está funcionando?");
+    // 1. Traducimos el error usando tu función centralizada
+    const friendlyMessage = translateError(error);
+
+    // 2. Si pasaste la función showToast y autoShowToast es true, disparamos la notificación
+    if (showToast && autoShowToast) {
+      showToast(friendlyMessage, 'error');
     }
     
-    // Si es otro tipo de error, lo dejamos pasar
-    throw error; 
+    // 3. Volvemos a lanzar el error YA TRADUCIDO para que los catch de React lo lean bien
+    throw new Error(friendlyMessage);
   }
 };
 

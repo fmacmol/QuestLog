@@ -56,28 +56,73 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   };
 
+  // ===== SINCRONIZAR MISIONES OFFLINE =====
+  const syncOfflineQuests = async () => {
+    // 1. Cargamos lo que hay en local
+    const localQuests = loadUserQuestsFromLocal(user.id);
+    
+    // 2. Filtramos solo las que creamos sin conexión (las que empiezan por 'local_')
+    const offlineQuests = localQuests.filter(q => q._id && q._id.startsWith('local_'));
+
+    if (offlineQuests.length === 0) return; // Si no hay nada que sincronizar, salimos
+
+    showToast('🔄 Sincronizando datos guardados sin conexión...', 'info');
+
+    // 3. Subimos cada misión offline a la base de datos
+    for (const quest of offlineQuests) {
+      const questData = {
+        title: quest.title,
+        description: quest.description,
+        xpReward: quest.xpReward,
+        difficulty: quest.difficulty,
+        isMultiRequirement: quest.isMultiRequirement || false,
+        subtasks: quest.subtasks || [],
+        fromChallenge: quest.fromChallenge
+      };
+
+      try {
+        await safeFetch(
+          `${process.env.REACT_APP_API_URL}/api/quests`,
+          {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify(questData)
+          }
+        );
+      } catch (error) {
+        console.error(`Error al sincronizar la misión: ${quest.title}`, error);
+      }
+    }
+  };
+
   // ===== FETCH QUESTS =====
   const fetchQuests = async () => {
     try {
       setLoading(true);
       
       if (user && token) {
-        // Intentar cargar del servidor con safeFetch
+        
+        // 👇 1. PRIMERO SINCRONIZAMOS LOS DATOS OFFLINE AL SERVIDOR 👇
+        await syncOfflineQuests();
+        
+        // 2. LUEGO DESCARGAMOS LA VERSIÓN ACTUALIZADA
         const data = await safeFetch(
           `${process.env.REACT_APP_API_URL}/api/quests`,
           { headers: { 'Authorization': `Bearer ${token}` } },
-          null // No mostrar toast aquí, lo manejamos nosotros
+          null 
         ).catch(async (error) => {
-          // Si falla, cargar backup local
           showToast('Usando copia local de seguridad', 'warning');
           const backup = loadUserQuestsFromLocal(user.id);
           setQuests(backup);
-          saveUserQuestsToLocal(user.id, backup);
-          return null;
+          return null; // Quitamos el saveUserQuestsToLocal de aquí para no sobrescribir en vano
         });
         
         if (data) {
           setQuests(data);
+          // 3. Ahora sí, actualizamos el local con los IDs reales de Mongo
           saveUserQuestsToLocal(user.id, data);
         }
       } 
@@ -88,7 +133,6 @@ function App() {
       
       setLoading(false);
     } catch (error) {
-      // Error ya manejado en safeFetch o en el catch interno
       setLoading(false);
     }
   };
@@ -436,7 +480,7 @@ function App() {
         const updatedQuests = [questToAdd, ...quests];
         setQuests(updatedQuests);
         saveUserQuestsToLocal(user.id, updatedQuests);
-        showToast('⚠️ Reto guardado localmente (sin conexión)', 'warning');
+        showToast('Reto guardado localmente (sin conexión)', 'warning');
       }
     } else {
       const updatedQuests = [questToAdd, ...quests];

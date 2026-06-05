@@ -28,7 +28,6 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = (userData, authToken) => {
-    console.log('🔐 Datos de usuario recibidos en login:', userData);
     const userForState = {
       id: userData._id || userData.id,
       username: userData.username,
@@ -36,7 +35,6 @@ export const AuthProvider = ({ children }) => {
       isAdmin: userData.isAdmin || false
     };
     
-    console.log('👤 Usuario guardado en estado:', userForState);
 
     setUser(userForState);
     setToken(authToken);
@@ -51,10 +49,12 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user');
   };
 
-  const updateUser = (userData) => {
-    setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
-  };
+  const updateUser = (newUserData) => {
+  setUser(prevUser => ({
+    ...prevUser,
+    ...newUserData
+  }));
+};
 
   const value = {
     user,
@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, token, login, logout, updateUser, loading }}>
       {children}
     </AuthContext.Provider>
   );

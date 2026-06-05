@@ -5,7 +5,7 @@ import { useToast } from '../context/ToastContext';
 
 const SettingsModal = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState('profile');
-  const { user, token } = useAuth();
+  const { user, token, updateUser } = useAuth();
   const { soundEnabled, confettiEnabled, animationEnabled, theme, savePreferences } = usePreferences();
   const { showToast } = useToast();
   
@@ -47,6 +47,8 @@ const SettingsModal = ({ onClose }) => {
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
+        updateUser({ username: username });
+        onClose();
       } else {
         const error = await res.json();
         showToast(error.error || 'Error al actualizar perfil', 'error');
