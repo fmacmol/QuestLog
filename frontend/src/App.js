@@ -6,9 +6,10 @@ import AuthForms from './components/AuthForms';
 import QuestCard from './components/QuestCard';
 import CommunityChallenges from './components/CommunityChallenges';
 import useLevelUp from './hooks/useLevelUp';
-import SettingsModal from './components/SettingsModal';
+import SettingsModal from './modals/SettingsModal';
 import { useToast } from './context/ToastContext';
 import { safeFetch } from './utils/errorHandler';
+import StatsModal from './modals/StatsModal';
 
 function App() {
   const { user, token, loading: authLoading, logout } = useAuth();
@@ -32,6 +33,7 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [refreshChallenges, setRefreshChallenges] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const { showToast } = useToast();
 
   // ===== FUNCIONES DE LOCALSTORAGE =====
@@ -575,6 +577,7 @@ function App() {
                 onOpenAuth={() => setShowAuth(true)} 
                 onMenuStateChange={setIsMenuOpen}
                 onOpenSettings={() => setShowSettings(true)}
+                onOpenStats={() => setShowStats(true)}
                 onLogout={handleLogout}
               />
             </div>
@@ -834,6 +837,12 @@ function App() {
       {showSettings && (
         <SettingsModal 
           onClose={() => setShowSettings(false)} 
+        />
+      )}
+      {showStats && (
+        <StatsModal 
+          onClose={() => setShowStats(false)} 
+          quests={quests}
         />
       )}
     </div>
