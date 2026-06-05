@@ -10,6 +10,7 @@ import SettingsModal from './modals/SettingsModal';
 import { useToast } from './context/ToastContext';
 import { safeFetch } from './utils/errorHandler';
 import StatsModal from './modals/StatsModal';
+import PetSection from './sections/PetSection';
 
 function App() {
   const { user, token, loading: authLoading, logout, updateUser } = useAuth();
@@ -34,6 +35,7 @@ function App() {
   const [refreshChallenges, setRefreshChallenges] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [showPetSection, setShowPetSection] = useState(false);
   const { showToast } = useToast();
 
   const refreshUserProfile = async () => {
@@ -471,6 +473,12 @@ function App() {
     }
   };
   
+  // Función para volver
+  const handleBackFromPet = () => {
+    setShowPetSection(false);
+  };
+
+
   const addChallengeToQuests = async (newQuest, challengeId) => {
     
     // Verificar si ya existe
@@ -581,12 +589,18 @@ function App() {
     );
   }
 
+  
+
   const filteredQuests = quests.filter(quest => {
     if (filter === 'all') return true;
     if (filter === 'pending') return !quest.completed;
     if (filter === 'completed') return quest.completed;
     return true;
   });
+
+  if (showPetSection) {
+    return <PetSection onBack={() => setShowPetSection(false)} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-rpg-dark to-rpg-purple">
@@ -602,6 +616,7 @@ function App() {
                 onMenuStateChange={setIsMenuOpen}
                 onOpenSettings={() => setShowSettings(true)}
                 onOpenStats={() => setShowStats(true)}
+                onOpenPet={() => setShowPetSection(true)}
                 onLogout={handleLogout}
               />
             </div>
