@@ -20,7 +20,9 @@ export const AuthProvider = ({ children }) => {
         id: parsedUser.id,
         username: parsedUser.username,
         email: parsedUser.email,
-        isAdmin: parsedUser.isAdmin || false
+        isAdmin: parsedUser.isAdmin || false,
+        stats: parsedUser.stats || { totalXP: 0, completedQuests: 0, completedChallenges: 0 },
+        completedChallenges: parsedUser.completedChallenges || []
       });
     }
     
@@ -32,10 +34,11 @@ export const AuthProvider = ({ children }) => {
       id: userData._id || userData.id,
       username: userData.username,
       email: userData.email,
-      isAdmin: userData.isAdmin || false
+      isAdmin: userData.isAdmin || false,
+      stats: userData.stats || { totalXP: 0, level: 1, completedQuests: 0, completedChallenges: 0 },
+      completedChallenges: userData.completedChallenges || []
     };
     
-
     setUser(userForState);
     setToken(authToken);
     localStorage.setItem('token', authToken);
@@ -50,23 +53,32 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateUser = (newUserData) => {
-  setUser(prevUser => ({
-    ...prevUser,
-    ...newUserData
-  }));
-};
+    setUser(prevUser => {
+      const updated = { ...prevUser, ...newUserData };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const refreshUserProfile = async () => {
+    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/me`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const updatedUser = await response.json();
+    updateUser(updatedUser); // Usando la función updateUser que ya creamos
+  };
 
   const value = {
     user,
     token,
     login,
     logout,
-    loading,
-    updateUser
+    updateUser,
+    loading
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, updateUser, loading }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

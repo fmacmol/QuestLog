@@ -12,7 +12,7 @@ import { safeFetch } from './utils/errorHandler';
 import StatsModal from './modals/StatsModal';
 
 function App() {
-  const { user, token, loading: authLoading, logout } = useAuth();
+  const { user, token, loading: authLoading, logout, updateUser } = useAuth();
   const [showAuth, setShowAuth] = useState(false);
   const [quests, setQuests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +35,22 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const { showToast } = useToast();
+
+  const refreshUserProfile = async () => {
+    if (!user || !token) return;
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/profile`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const profile = await res.json();
+      updateUser({
+        stats: profile.stats,
+        completedChallenges: profile.completedChallenges
+      });
+    } catch (error) {
+      console.error('Error refrescando perfil:', error);
+    }
+  };
 
   // ===== FUNCIONES DE LOCALSTORAGE =====
   const saveAnonQuestsToLocal = (quests) => {
@@ -68,10 +84,22 @@ function App() {
 
     if (offlineQuests.length === 0) return; // Si no hay nada que sincronizar, salimos
 
-    showToast('🔄 Sincronizando datos guardados sin conexión...', 'info');
+    showToast('Sincronizando datos guardados sin conexión...', 'info');
 
     // 3. Subimos cada misión offline a la base de datos
     for (const quest of offlineQuests) {
+      // Verificar si ya existe en el servidor (por título y fecha aproximada)
+      const alreadyExists = quests.some(q => 
+        q.title === quest.title && 
+        Math.abs(new Date(q.createdAt) - new Date(quest.createdAt)) < 60000
+      );
+      if (alreadyExists) {
+        // Eliminar la copia local duplicada
+        const updatedLocal = localQuests.filter(q => q._id !== quest._id);
+        saveUserQuestsToLocal(user.id, updatedLocal);
+        continue;
+      }
+      
       const questData = {
         title: quest.title,
         description: quest.description,
@@ -355,6 +383,7 @@ function App() {
           },
           null
         );
+        refreshUserProfile(); // Refrescar perfil para actualizar estadísticas
       } catch (error) {
         console.debug('Error al sincronizar:', error.message);
       }
@@ -423,14 +452,18 @@ function App() {
     const newQuests = quests.filter(q => q._id !== id);
     setQuests(newQuests);
     
+    
     // 5. Guardar en localStorage
     if (user && token) {
       saveUserQuestsToLocal(user.id, newQuests);
     } else {
       saveAnonQuestsToLocal(newQuests);
     }
-    
-    // 6. Un solo mensaje de éxito
+
+    // 6. Refrescar el perfil para actualizar estadísticas visuales
+    await refreshUserProfile();
+
+    // 7. Un solo mensaje de éxito
     if (isChallenge) {
       showToast(`Reto "${questToDelete.title}" eliminado`, 'success');
     } else {
@@ -439,6 +472,16 @@ function App() {
   };
   
   const addChallengeToQuests = async (newQuest, challengeId) => {
+    
+    // Verificar si ya existe
+    const alreadyExists = quests.some(q => q.fromChallenge === challengeId);
+    
+    if (alreadyExists) {
+      console.log('Reto ya aceptado, no se duplica');
+      return;
+    }
+
+    // Crear el objeto questToAdd (ahora sí definido antes de usarlo)
     const questToAdd = {
       _id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
       ...newQuest,
@@ -475,9 +518,10 @@ function App() {
         const updatedQuests = [savedQuest, ...quests];
         setQuests(updatedQuests);
         saveUserQuestsToLocal(user.id, updatedQuests);
-        showToast('✅ Reto aceptado con éxito', 'success');
+        showToast('Reto aceptado con éxito', 'success');
         
       } catch (error) {
+        console.error('Error:', error);
         // Fallback local
         const updatedQuests = [questToAdd, ...quests];
         setQuests(updatedQuests);
@@ -485,10 +529,11 @@ function App() {
         showToast('Reto guardado localmente (sin conexión)', 'warning');
       }
     } else {
+      // Usuario anónimo
       const updatedQuests = [questToAdd, ...quests];
       setQuests(updatedQuests);
       saveAnonQuestsToLocal(updatedQuests);
-      showToast('✅ Reto aceptado (modo local)', 'success');
+      showToast('Reto aceptado', 'success');
     }
   };
 
@@ -504,18 +549,6 @@ function App() {
     }
   };
 
-  // ===== LONG PRESS HANDLER =====
-  /*const handleLongPress = (quest) => {
-    setEditingQuest(quest);
-    setNewQuest({
-      title: quest.title,
-      description: quest.description || '',
-      xpReward: quest.xpReward,
-      difficulty: quest.difficulty
-    });
-    setShowForm(true);
-  };*/
-
   const getDifficultyColor = (difficulty) => {
     switch(difficulty) {
       case 'Fácil': return 'border-green-500 bg-green-500/10';
@@ -526,11 +559,11 @@ function App() {
   };
 
   // Calcular estadísticas
-  const totalXP = quests.filter(q => q.completed).reduce((sum, q) => sum + (q.xpReward || 0), 0);
-  const level = Math.floor(Math.sqrt(totalXP / 100)) + 1;
+  const totalXP = user?.stats?.totalXP || 0;
+  const level = user?.stats?.level || 1;
   const [previousLevel, setPreviousLevel] = useState(level);
   const xpForNextLevel = (level * level * 100) - totalXP;
-  const completedCount = quests.filter(q => q.completed).length;
+  const completedCount = (user?.stats?.completedQuests || 0) + (user?.stats?.completedChallenges || 0);
 
   // Detectar subida de nivel
   useLevelUp(level, previousLevel, user?.id || 'anon');
@@ -555,15 +588,6 @@ function App() {
     return true;
   });
 
-  // Calcular IDs de retos aceptados y completados (para el componente CommunityChallenges)
-  /*const acceptedChallengeIds = quests
-    .filter(q => q.fromChallenge)
-    .map(q => q.fromChallenge);*/
-
-  /*const completedChallengeIds = quests
-    .filter(q => q.fromChallenge && q.completed === true)
-    .map(q => q.fromChallenge);*/
-  
   return (
     <div className="min-h-screen bg-gradient-to-b from-rpg-dark to-rpg-purple">
       <header className="bg-rpg-dark/90 border-b-4 border-rpg-gold p-6 shadow-2xl">
@@ -843,6 +867,7 @@ function App() {
         <StatsModal 
           onClose={() => setShowStats(false)} 
           quests={quests}
+          userStats={user?.stats}
         />
       )}
     </div>

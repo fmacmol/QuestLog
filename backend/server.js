@@ -5,6 +5,9 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const SECRET_KEY = 'tu_clave_secreta_cambiala_en_produccion';
 
+function calculateLevel(xp) {
+  return Math.floor(Math.sqrt(xp / 100)) + 1;
+}
 
 // Middleware para verificar token
 const authenticate = (req, res, next) => {
@@ -59,7 +62,9 @@ app.post('/api/auth/register', async (req, res) => {
     const user = new User({ 
       username, 
       email, 
-      password: hashedPassword  // ← Usar la encriptada, no la original
+      password: hashedPassword,  // ← Usar la encriptada, no la original
+      stats: { totalXP: 0, level: 1, completedQuests: 0, completedChallenges: 0 },
+      completedChallenges: []
     });
     
     await user.save();
@@ -77,6 +82,9 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+function calculateLevel(xp) {
+  return Math.floor(Math.sqrt(xp / 100)) + 1;
+}
 
 // Login (sin depender del método del modelo)
 app.post('/api/auth/login', async (req, res) => {
@@ -105,7 +113,9 @@ app.post('/api/auth/login', async (req, res) => {
         id: user._id, 
         username: user.username, 
         email: user.email, 
-        isAdmin: user.isAdmin || false
+        isAdmin: user.isAdmin || false,
+        stats: user.stats || { totalXP: 0, level: 1, completedQuests: 0, completedChallenges: 0 },
+        completedChallenges: user.completedChallenges || []
       } 
     });
   } catch (error) {
@@ -186,13 +196,52 @@ app.post('/api/quests', authenticate, async (req, res) => {
 // PUT actualizar quest (sirve para todo: completar, editar, etc.)
 app.put('/api/quests/:id', authenticate, async (req, res) => {
   try {
-    const quest = await Quest.findOneAndUpdate(
-      { _id: req.params.id, userId: req.userId },
+    const quest = await Quest.findOne({ _id: req.params.id, userId: req.userId });
+    if (!quest) return res.status(404).json({ error: 'Quest no encontrada' });
+
+    const wasCompleted = quest.completed;
+    const isNowCompleted = req.body.completed;
+
+    const user = await User.findById(req.userId);
+    const isChallenge = !!quest.fromChallenge;
+
+    // Caso 1: Se completa ahora (false -> true)
+    if (!wasCompleted && isNowCompleted) {
+      user.stats.totalXP += quest.xpReward;
+      user.stats.level = calculateLevel(user.stats.totalXP);
+      if (isChallenge) {
+        user.stats.completedChallenges += 1;
+        if (!user.completedChallenges.includes(quest.fromChallenge)) {
+          user.completedChallenges.push(quest.fromChallenge);
+        }
+      } else {
+        user.stats.completedQuests += 1;
+      }
+      await user.save();
+    }
+    
+    // Caso 2: Se desmarca (true -> false)
+    if (wasCompleted && !isNowCompleted) {
+      user.stats.totalXP -= quest.xpReward;
+      user.stats.level = calculateLevel(user.stats.totalXP);
+      if (isChallenge) {
+        user.stats.completedChallenges -= 1;
+        // Eliminar el reto de completedChallenges
+        user.completedChallenges = user.completedChallenges.filter(
+          id => id.toString() !== quest.fromChallenge.toString()
+        );
+      } else {
+        user.stats.completedQuests -= 1;
+      }
+      await user.save();
+    }
+
+    const updatedQuest = await Quest.findByIdAndUpdate(
+      req.params.id,
       req.body,
       { returnDocument: 'after' }
     );
-    if (!quest) return res.status(404).json({ error: 'Quest no encontrada' });
-    res.json(quest);
+    res.json(updatedQuest);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -239,27 +288,38 @@ app.get('/api/public-challenges', async (req, res) => {
 app.post('/api/public-challenges/:id/accept', authenticate, async (req, res) => {
   try {
     const challenge = await PublicChallenge.findById(req.params.id);
-    if (!challenge) {
-      return res.status(404).json({ error: 'Reto no encontrado' });
+    if (!challenge) return res.status(404).json({ error: 'Reto no encontrado' });
+
+    const user = await User.findById(req.userId);
+    // Si ya completó este reto en el pasado, no puede volver a aceptarlo
+    if (user.completedChallenges.includes(challenge._id)) {
+      return res.status(400).json({ error: 'Ya completaste este reto anteriormente' });
     }
-    
+
     if (challenge.acceptedBy.includes(req.userId)) {
       return res.status(400).json({ error: 'Ya aceptaste este reto' });
     }
-    
+
     challenge.acceptedBy.push(req.userId);
     await challenge.save();
-    
-    // Devolver el reto actualizado (con populate para que tenga los datos completos)
-    const updatedChallenge = await PublicChallenge.findById(req.params.id)
-      .populate('createdBy', 'username')
-      .populate('acceptedBy', '_id');
-    
-      res.json(updatedChallenge);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+
+    // Crear la quest asociada (pero no se suman estadísticas hasta que se complete)
+    const newQuest = new Quest({
+      title: challenge.title,
+      description: challenge.description,
+      xpReward: challenge.xpReward,
+      difficulty: challenge.difficulty,
+      fromChallenge: challenge._id,
+      userId: req.userId,
+      completed: false
+    });
+    await newQuest.save();
+
+    res.status(201).json(newQuest);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // POST cancelar reto (quita el usuario de acceptedBy)
 app.post('/api/public-challenges/:id/cancel', authenticate, async (req, res) => {
@@ -312,7 +372,7 @@ app.delete('/api/public-challenges/:id', authenticate, async (req, res) => {
     const challenge = await PublicChallenge.findByIdAndUpdate(
       req.params.id,
       { isActive: false },
-      { new: true }
+      { returnDocument: 'after' }
     );
     res.json(challenge);
   } catch (error) {
@@ -337,6 +397,16 @@ app.put('/api/auth/change-password', authenticate, async (req, res) => {
     await user.save();
     
     res.json({ message: 'Contraseña actualizada' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Obtener perfil de usuario
+app.get('/api/auth/profile', authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('username email stats completedChallenges');
+    res.json(user);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -389,7 +459,7 @@ app.put('/api/auth/change-username', authenticate, async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.userId,
       { username },
-      { new: true }
+      { returnDocument: 'after' }
     );
     res.json({ username: user.username });
   } catch (error) {
@@ -397,6 +467,15 @@ app.put('/api/auth/change-username', authenticate, async (req, res) => {
   }
 });
 
+// Obtener estadísticas y perfil actualizado
+/*app.get('/api/auth/me', authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('-password');
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener perfil' });
+  }
+});*/
 
 
 app.listen(PORT, () => {

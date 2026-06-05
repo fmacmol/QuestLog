@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-const StatsModal = ({ onClose, quests }) => {
+const StatsModal = ({ onClose, quests, userStats }) => {
+  userStats = userStats || { totalXP: 0, completedQuests: 0, completedChallenges: 0 };
   const { user } = useAuth();
   const [filterType, setFilterType] = useState('all'); // 'all', 'quest', 'challenge'
   const [sortOrder, setSortOrder] = useState('desc'); // 'asc', 'desc'
@@ -30,9 +31,9 @@ const StatsModal = ({ onClose, quests }) => {
   }, [filteredByType, sortOrder]);
 
   // Calcular estadísticas resumidas
-  const totalXP = completedQuests.reduce((sum, q) => sum + (q.xpReward || 0), 0);
-  const totalQuests = completedQuests.filter(q => !q.fromChallenge).length;
-  const totalChallenges = completedQuests.filter(q => q.fromChallenge).length;
+  const totalXP = userStats.totalXP;
+  const totalQuests = userStats.completedQuests;
+  const totalChallenges = userStats.completedChallenges;
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
@@ -51,15 +52,15 @@ const StatsModal = ({ onClose, quests }) => {
         {/* Resumen */}
         <div className="grid grid-cols-3 gap-4 p-4 bg-rpg-dark/30 border-b border-rpg-gold/30">
           <div className="text-center">
-            <p className="text-2xl font-bold text-rpg-gold">{totalXP}</p>
+            <p className="text-2xl font-bold text-rpg-gold">{userStats?.totalXP || 0}</p>
             <p className="text-xs text-gray-400">XP total</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold text-green-500">{totalQuests}</p>
+            <p className="text-2xl font-bold text-green-500">{userStats?.completedQuests || 0}</p>
             <p className="text-xs text-gray-400">Misiones</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold text-blue-500">{totalChallenges}</p>
+            <p className="text-2xl font-bold text-blue-500">{userStats?.completedChallenges || 0}</p>
             <p className="text-xs text-gray-400">Retos</p>
           </div>
         </div>

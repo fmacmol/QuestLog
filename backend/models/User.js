@@ -5,7 +5,14 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
-  isAdmin: { type: Boolean, default: false }
+  isAdmin: { type: Boolean, default: false },
+  stats: {
+    totalXP: { type: Number, default: 0 },
+    level: { type: Number, default: 1 },
+    completedQuests: { type: Number, default: 0 },
+    completedChallenges: { type: Number, default: 0 }
+  },
+  completedChallenges: [{ type: mongoose.Schema.Types.ObjectId, ref: 'PublicChallenge' }]
 });
 
 module.exports = mongoose.model('User', userSchema);

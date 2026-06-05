@@ -9,6 +9,8 @@ const CommunityChallenges = ({
   refreshTrigger,
   quests
  }) => {
+  console.log('🔄 CommunityChallenges render, quests length:', quests?.length);
+  console.log('🔄 fromChallenge IDs:', quests?.map(q => q.fromChallenge));
   const { showToast } = useToast();
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -79,13 +81,16 @@ const CommunityChallenges = ({
   };
 
   const acceptChallenge = async (challenge) => {
-  if (!user) {
-    showToast('Debes iniciar sesión para aceptar retos', 'warning');
-    return;
-  }
-  
-  // Verificar si ya está aceptado
-  const alreadyAccepted = quests?.some(q => q.fromChallenge === challenge._id);
+    console.log('📡 acceptChallenge llamado para reto:', challenge.title);
+    
+    if (!user) {
+      showToast('Debes iniciar sesión para aceptar retos', 'warning');
+      return;
+    }
+    
+    const alreadyAccepted = quests?.some(q => q.fromChallenge === challenge._id);
+    console.log('📡 alreadyAccepted en quests:', alreadyAccepted);
+    
     if (alreadyAccepted) {
       showToast('Ya has aceptado este reto', 'info');
       return;
@@ -98,10 +103,12 @@ const CommunityChallenges = ({
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` }
         },
-        showToast
+        null,
+        false
       );
+      
+      console.log('📡 Reto aceptado en backend, updatedChallenge:', updatedChallenge);
 
-      // Crear copia en quests del usuario
       const newQuest = {
         title: challenge.title,
         description: challenge.description,
@@ -112,17 +119,35 @@ const CommunityChallenges = ({
         fromChallenge: challenge._id
       };
       
+      console.log('📡 Llamando a onAddToQuests con:', newQuest);
       onAddToQuests(newQuest, challenge._id);
       
-      // Actualizar el estado local
-      setChallenges(prev => prev.map(c => 
-        c._id === challenge._id ? updatedChallenge : c
-      ));
+      setChallenges(prev => {
+        console.log('📡 Actualizando challenges state');
+        return prev.map(c => 
+          c._id === challenge._id 
+            ? { ...c, acceptedBy: [...(c.acceptedBy || []), { _id: user.id }] }
+            : c
+        );
+      });
+      
+      showToast('✅ Reto aceptado con éxito', 'success');
       
     } catch (error) {
-      console.debug('Error al aceptar reto');
+      console.error('📡 Error en acceptChallenge:', error);
+      if (error.message.includes('Ya aceptaste este reto')) {
+        showToast('ℹ️ Ya habías aceptado este reto', 'info');
+        setChallenges(prev => prev.map(c => 
+          c._id === challenge._id 
+            ? { ...c, acceptedBy: [...(c.acceptedBy || []), { _id: user.id }] }
+            : c
+        ));
+      } else {
+        showToast(error.message || 'Error al aceptar reto', 'error');
+      }
     }
   };
+
 
   const isAccepted = (challenge) => {
     if (!user) return false;
