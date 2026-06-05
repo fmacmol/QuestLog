@@ -49,25 +49,26 @@ export const translateError = (error) => {
 /**
  * Fetch con manejo de errores integrado
  */
-export const safeFetch = async (url, options, showToast = null, showErrorToast = true) => {
+export const safeFetch = async (url, options = {}) => {
   try {
     const response = await fetch(url, options);
-    
+
+    // Si el servidor responde, pero con un código de error (400, 401, 500, etc.)
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
-      throw new Error(errorMessage);
+      throw new Error(errorData.error || `Error HTTP: ${response.status}`);
     }
-    
+
     return await response.json();
+
   } catch (error) {
-    const userMessage = translateError(error);
-    
-    if (showToast && showErrorToast) {
-      showToast(userMessage, 'error');
+    // AQUÍ ESTÁ LA CLAVE: Capturamos el error de red nativo del navegador
+    if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+      throw new Error("No se pudo conectar con el servidor. ¿El backend está funcionando?");
     }
     
-    throw new Error(userMessage);
+    // Si es otro tipo de error, lo dejamos pasar
+    throw error; 
   }
 };
 

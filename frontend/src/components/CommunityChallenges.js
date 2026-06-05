@@ -79,34 +79,27 @@ const CommunityChallenges = ({
   };
 
   const acceptChallenge = async (challenge) => {
-    if (!user) {
-      showToast('Debes iniciar sesión para aceptar retos', 'warning');
-      return;
-    }
-    
-    // Verificar si ya está aceptado
-    const alreadyAccepted = quests?.some(q => q.fromChallenge === challenge._id);
+  if (!user) {
+    showToast('Debes iniciar sesión para aceptar retos', 'warning');
+    return;
+  }
+  
+  // Verificar si ya está aceptado
+  const alreadyAccepted = quests?.some(q => q.fromChallenge === challenge._id);
     if (alreadyAccepted) {
-      showToast('Ya has aceptado este reto', 'warning');
+      showToast('Ya has aceptado este reto', 'info');
       return;
     }
     
     try {
-      // FETCH DIRECTO para aceptar el reto (sin safeFetch)
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/public-challenges/${challenge._id}/accept`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || 'Error al aceptar reto');
-      }
-      
-      const updatedChallenge = await res.json();
+      const updatedChallenge = await safeFetch(
+        `${process.env.REACT_APP_API_URL}/api/public-challenges/${challenge._id}/accept`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        },
+        showToast
+      );
 
       // Crear copia en quests del usuario
       const newQuest = {
@@ -127,8 +120,7 @@ const CommunityChallenges = ({
       ));
       
     } catch (error) {
-      console.error('Error:', error);
-      showToast(error.message || 'Error al aceptar reto', 'error');
+      console.debug('Error al aceptar reto');
     }
   };
 

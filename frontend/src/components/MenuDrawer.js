@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-const MenuDrawer = ({ onOpenAuth, onMenuStateChange, onOpenSettings }) => {
+const MenuDrawer = ({ onOpenAuth, onMenuStateChange, onOpenSettings, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
   const { user, logout } = useAuth();
 
@@ -69,6 +69,7 @@ const MenuDrawer = ({ onOpenAuth, onMenuStateChange, onOpenSettings }) => {
               <button
                 onClick={() => {
                   logout();
+                  onLogout();
                   closeMenu();
                 }}
                 className="w-full bg-red-500/20 hover:bg-red-500/40 text-red-500 px-4 py-2 rounded-lg transition-colors"
