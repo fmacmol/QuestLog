@@ -233,6 +233,22 @@ app.put('/api/quests/:id', authenticate, async (req, res) => {
       } else {
         user.stats.completedQuests -= 1;
       }
+
+      // Actualizar etapa de la mascota según XP
+      if (user.pet && user.pet.claimed) {
+        const newStage = getPetStageByXP(user.stats.totalXP);
+        if (newStage !== user.pet.stage) {
+          user.pet.stage = newStage;
+          if (newStage === 'baby') {
+            showToast('¡Tu huevo ha eclosionado! Tu mascota es ahora un bebé', 'success');
+          } else if (newStage === 'adult') {
+            showToast('¡Tu mascota ha alcanzado su etapa adulta!', 'success');
+          } else {
+            showToast(`Tu huevo le falta poco para eclosionar`, 'success');
+          }
+        }
+      }
+
       await user.save();
     }
 
@@ -477,6 +493,63 @@ app.put('/api/auth/change-username', authenticate, async (req, res) => {
   }
 });*/
 
+// ===== RUTAS PARA MASCOTA =====
+
+// Obtener estado de la mascota del usuario
+app.get('/api/pet', authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user.pet || !user.pet.claimed) {
+      return res.json({ hasPet: false });
+    }
+    res.json({ hasPet: true, pet: user.pet });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Inicializar mascota (regalo aleatorio)
+app.post('/api/pet/init', authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    
+    // Si ya tiene mascota, no hacer nada
+    if (user.pet?.claimed) {
+      return res.status(400).json({ error: 'Ya tienes una mascota' });
+    }
+    
+    // Packs posibles (animal + fondo)
+    const packs = [
+      { animal: 'axolotl', background: 'sea' },
+      { animal: 'dragon', background: 'volcano' },
+      { animal: 'penguin', background: 'ice' }
+    ];
+    
+    // Seleccionar pack aleatorio
+    const randomPack = packs[Math.floor(Math.random() * packs.length)];
+    
+    // Guardar en el usuario
+    user.pet = {
+      animal: randomPack.animal,
+      background: randomPack.background,
+      stage: 'egg',
+      claimed: true
+    };
+    await user.save();
+    
+    res.json({ success: true, pet: user.pet });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// Calcular etapa de la mascota según XP
+function getPetStageByXP(xp) {
+  if (xp < 100) return 'egg';
+  if (xp < 500) return 'baby';
+  return 'adult';
+}
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
