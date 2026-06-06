@@ -1,95 +1,123 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { safeFetch } from '../utils/errorHandler';
+import { useSwipeable } from 'react-swipeable';
 
 const PetSection = ({ onBack }) => {
   const { user, token } = useAuth();
   const { showToast } = useToast();
-  const [pet, setPet] = useState(null);
+  const [pets, setPets] = useState([]);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showGift, setShowGift] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Cargar estado de la mascota
   useEffect(() => {
-    loadPet();
+    loadPets();
   }, []);
 
-  const loadPet = async () => {
+  const loadPets = async () => {
     try {
-      const data = await safeFetch(
-        `${process.env.REACT_APP_API_URL}/api/pet`,
-        { headers: { 'Authorization': `Bearer ${token}` } },
-        null,
-        false
-      );
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/pets`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
       
-      if (data.hasPet) {
-        setPet(data.pet);
+      if (data.pets && data.pets.length > 0) {
+        setPets(data.pets);
+        setActiveIndex(data.activeIndex || 0);
       } else {
         setShowGift(true);
       }
       setLoading(false);
     } catch (error) {
-      console.error('Error cargando mascota:', error);
+      console.error('Error cargando mascotas:', error);
       setLoading(false);
     }
   };
 
   const openGift = async () => {
     try {
-      const data = await safeFetch(
-        `${process.env.REACT_APP_API_URL}/api/pet/init`,
-        { 
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` }
-        },
-        showToast
-      );
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/pets/init`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
       
       if (data.success) {
-        setPet(data.pet);
+        setPets(data.pets);
+        setActiveIndex(data.activeIndex);
         setShowGift(false);
-        showToast('🎁 ¡Felicidades! Tu huevo está listo para eclosionar', 'success');
+        showToast('🎁 ¡Felicidades! Tu huevo está listo', 'success');
       }
     } catch (error) {
       showToast('Error al obtener tu mascota', 'error');
     }
   };
 
-  // Obtener la imagen según animal y etapa
-  const getPetImage = () => {
-    if (!pet) return null;
+  const changePet = async (newIndex) => {
+    if (newIndex < 0 || newIndex >= pets.length) return;
+    
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/pets/activate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ index: newIndex })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        setActiveIndex(newIndex);
+        showToast(`🐾 Cambiaste a ${pets[newIndex].animal}`, 'info');
+      }
+    } catch (error) {
+      showToast('Error al cambiar de mascota', 'error');
+    }
+  };
+
+  // Handlers para swipe
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => changePet(activeIndex + 1),
+    onSwipedRight: () => changePet(activeIndex - 1),
+    preventDefaultTouchmoveEvent: true,
+    trackMouse: true
+  });
+
+  const getPetImage = (pet) => {
     if (pet.stage === 'egg') {
       return `/images/pets/egg_${pet.animal}.png`;
     }
     return `/images/pets/${pet.animal}_${pet.stage}.png`;
   };
 
-  // Obtener fondo según background
-  const getBackgroundImage = () => {
-    if (!pet) return null;
-    return `/images/backgrounds/${pet.background}.png`;
+  const getBackgroundImage = (pet) => {
+    return `/images/backgrounds/${pet.background}.jpg`;
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-rpg-dark flex items-center justify-center">
-        <div className="text-rpg-gold text-2xl animate-pulse">Cargando tu mascota...</div>
+        <div className="text-rpg-gold text-2xl animate-pulse">Cargando tus mascotas...</div>
       </div>
     );
   }
 
+  const activePet = pets[activeIndex];
+
   return (
-    <div 
-      className="min-h-screen bg-cover bg-center bg-no-repeat relative"
-      style={pet ? { backgroundImage: `url(${getBackgroundImage()})` } : { backgroundColor: '#1a1124' }}
-    >
-      {/* Overlay para que el texto sea legible */}
+    <div className="min-h-screen bg-cover bg-center bg-no-repeat relative">
+      {activePet && (
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${getBackgroundImage(activePet)})` }}
+        />
+      )}
       <div className="absolute inset-0 bg-black/40" />
 
-      {/* Botón para volver atrás */}
+      {/* Botón volver */}
       <button
         onClick={onBack}
         className="fixed top-4 left-4 z-50 bg-rpg-gold/20 hover:bg-rpg-gold/40 text-rpg-gold px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
@@ -112,31 +140,64 @@ const PetSection = ({ onBack }) => {
           </div>
         )}
 
-        {/* Mascota */}
-        {pet && (
-          <div className="text-center">
-            <img 
-              src={getPetImage()} 
-              alt={`${pet.animal} - ${pet.stage}`}
-              className={`w-64 h-64 object-contain mx-auto drop-shadow-2xl ${pet.stage === 'egg' ? 'egg-wiggle' : ''}`}
-              onError={(e) => {
-                e.target.src = 'https://placehold.co/300x300/2d1b3c/e4b363?text=🐣';
-              }}
-            />
+        {/* Carrusel */}
+        {!showGift && pets.length > 0 && activePet && (
+          <div {...swipeHandlers} className="text-center w-full">
+            <div className="relative">
+              {/* Indicador de que se puede deslizar */}
+              {pets.length > 1 && (
+                <div className="absolute top-1/2 -translate-y-1/2 left-2 text-rpg-gold/50">
+                  ◀
+                </div>
+              )}
+              {pets.length > 1 && (
+                <div className="absolute top-1/2 -translate-y-1/2 right-2 text-rpg-gold/50">
+                  ▶
+                </div>
+              )}
+              <img 
+                src={getPetImage(activePet)} 
+                alt={`${activePet.animal} - ${activePet.stage}`}
+                className={`w-64 h-64 object-contain mx-auto drop-shadow-2xl ${activePet.stage === 'egg' ? 'egg-wiggle' : ''}`}
+                onError={(e) => {
+                  e.target.src = 'https://placehold.co/300x300/2d1b3c/e4b363?text=🐣';
+                }}
+              />
+            </div>
+            
             <h2 className="text-3xl font-rpg text-rpg-gold mt-4 capitalize">
-              {pet.animal} - {pet.stage === 'egg' ? 'Huevo' : pet.stage}
+              {activePet.animal} - {activePet.stage === 'egg' ? 'Huevo' : activePet.stage}
             </h2>
-            <p className="text-gray-300 mt-2">
-              {pet.stage === 'egg' && 'Pronto eclosionará...'}
-              {pet.stage === 'baby' && 'Tu mascota está creciendo'}
-              {pet.stage === 'adult' && 'Tu mascota ha alcanzado su forma final'}
+            
+            <div className="flex justify-center gap-2 mt-2">
+              {pets.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => changePet(idx)}
+                  className={`w-3 h-3 rounded-full transition-all ${
+                    idx === activeIndex ? 'bg-rpg-gold w-6' : 'bg-gray-500'
+                  }`}
+                />
+              ))}
+            </div>
+            
+            <p className="text-gray-300 mt-4">
+              {activePet.stage === 'egg' && 'Pronto eclosionará...'}
+              {activePet.stage === 'baby' && 'Tu mascota está creciendo'}
+              {activePet.stage === 'adult' && 'Tu mascota ha alcanzado su forma final'}
             </p>
+            
+            {pets.length > 1 && (
+              <p className="text-gray-400 text-sm mt-2">
+                Desliza para cambiar de mascota
+              </p>
+            )}
           </div>
         )}
 
       </div>
 
-      {/* Barra inferior flotante y desplegable */}
+      {/* Barra inferior flotante (igual que antes) */}
       <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-center pb-4">
         <div className="relative">
           <button

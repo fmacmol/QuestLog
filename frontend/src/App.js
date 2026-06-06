@@ -386,6 +386,18 @@ function App() {
           null
         );
         refreshUserProfile(); // Refrescar perfil para actualizar estadísticas
+
+        // Mostrar notificación de evolución de mascota si ocurrió
+        if (response?.petEvolution) {
+          const stageNames = { baby: 'bebé', adult: 'adulta' };
+          const stageName = stageNames[response.petEvolution];
+          if (response.petEvolution === 'baby') {
+            showToast('¡Tu huevo ha eclosionado! Tu mascota es ahora un bebé', 'success');
+          } else if (response.petEvolution === 'adult') {
+            showToast('¡Tu mascota ha alcanzado su etapa adulta!', 'success');
+          }
+        }
+
       } catch (error) {
         console.debug('Error al sincronizar:', error.message);
       }

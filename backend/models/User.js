@@ -13,12 +13,13 @@ const userSchema = new mongoose.Schema({
     completedChallenges: { type: Number, default: 0 }
   },
   completedChallenges: [{ type: mongoose.Schema.Types.ObjectId, ref: 'PublicChallenge' }],
-  pet: {
-    animal: { type: String, default: null },
-    background: { type: String, default: null }, 
-    stage: { type: String, default: 'egg' },     
-    claimed: { type: Boolean, default: false }   
-  }
+  pets: [{
+    animal: { type: String, required: true },
+    background: { type: String, required: true },
+    stage: { type: String, default: 'egg' },
+    isActive: { type: Boolean, default: false }
+  }],
+  activePetIndex: { type: Number, default: 0 }
 });
 
 module.exports = mongoose.model('User', userSchema);
