@@ -7,7 +7,7 @@ import BackpackModal from '../modals/BackpackModal';
 import DraggableCosmetic from '../components/DraggableCosmetic';
 
 const PetSection = ({ onBack }) => {
-  const { user, token } = useAuth();
+  const { user, token, updateUser } = useAuth();
   const { showToast } = useToast();
   const [pets, setPets] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -322,7 +322,7 @@ const PetSection = ({ onBack }) => {
         <BackpackModal 
           onClose={() => {
             setShowBackpack(false);
-            refreshPets(); // Opcional: refrescar datos al cerrar
+            refreshPets();
           }}
         />
       )}

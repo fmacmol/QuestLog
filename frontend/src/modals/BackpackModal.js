@@ -3,33 +3,24 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
 const BackpackModal = ({ onClose }) => {
-  const { user, token, updateUser } = useAuth();
+  const { token } = useAuth(); // Solo necesitas token, no updateUser
   const { showToast } = useToast();
   const [pets, setPets] = useState([]);
   const [activePetIndex, setActivePetIndex] = useState(0);
+  const [cosmetics, setCosmetics] = useState({ owned: { hats: [], accessories: [] } });
   const [loading, setLoading] = useState(true);
 
-  // Cargar datos una sola vez al montar el modal
   useEffect(() => {
     const loadData = async () => {
       try {
-        // 1. Cargar perfil actualizado (para cosméticos)
+        // Cargar perfil (para obtener cosméticos)
         const profileRes = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/profile`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const profileData = await profileRes.json();
-        
-        // Solo actualizar si hay cambios (evita bucles)
-        if (JSON.stringify(user?.cosmetics) !== JSON.stringify(profileData.cosmetics)) {
-          updateUser({
-            stats: profileData.stats,
-            completedChallenges: profileData.completedChallenges,
-            coins: profileData.coins,
-            cosmetics: profileData.cosmetics
-          });
-        }
+        setCosmetics(profileData.cosmetics || { owned: { hats: [], accessories: [] } });
 
-        // 2. Cargar mascotas
+        // Cargar mascotas
         const petsRes = await fetch(`${process.env.REACT_APP_API_URL}/api/pets`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -45,7 +36,7 @@ const BackpackModal = ({ onClose }) => {
     };
 
     loadData();
-  }, [token, updateUser]); // Dependencias mínimas
+  }, [token, showToast]);
 
   const changeBackground = async (backgroundId) => {
     try {
@@ -88,9 +79,9 @@ const BackpackModal = ({ onClose }) => {
       });
       if (res.ok) {
         const data = await res.json();
-        updateUser({ cosmetics: data.cosmetics });
+        // Actualizar el estado local de cosméticos (sin tocar el contexto global)
+        setCosmetics(data.cosmetics);
         showToast('Cosmético equipado', 'success');
-        // No cerrar el modal
       } else {
         const error = await res.json();
         showToast(error.error || 'Error al equipar', 'error');
@@ -142,11 +133,11 @@ const BackpackModal = ({ onClose }) => {
             </div>
           </div>
 
-          {/* Cosméticos - Sombreros */}
+          {/* Sombreros */}
           <div>
             <h3 className="text-lg font-bold text-rpg-gold mb-3">🎩 Sombreros</h3>
             <div className="flex gap-3 flex-wrap">
-              {user?.cosmetics?.owned?.hats?.map(hat => (
+              {cosmetics.owned?.hats?.map(hat => (
                 <div key={hat} className="bg-rpg-dark/50 rounded-lg p-3">
                   <div className="text-3xl mb-1">{hat === 'sombrero' ? '🤠' : '👑'}</div>
                   <p className="text-xs text-center">{hat}</p>
@@ -158,17 +149,17 @@ const BackpackModal = ({ onClose }) => {
                   </button>
                 </div>
               ))}
-              {(!user?.cosmetics?.owned?.hats || user.cosmetics.owned.hats.length === 0) && (
+              {(!cosmetics.owned?.hats || cosmetics.owned.hats.length === 0) && (
                 <p className="text-gray-400 text-sm">No tienes sombreros. ¡Compra en la tienda!</p>
               )}
             </div>
           </div>
 
-          {/* Cosméticos - Accesorios */}
+          {/* Accesorios */}
           <div>
             <h3 className="text-lg font-bold text-rpg-gold mb-3">⚔️ Accesorios</h3>
             <div className="flex gap-3 flex-wrap">
-              {user?.cosmetics?.owned?.accessories?.map(acc => (
+              {cosmetics.owned?.accessories?.map(acc => (
                 <div key={acc} className="bg-rpg-dark/50 rounded-lg p-3">
                   <div className="text-3xl mb-1">{acc === 'espada' ? '🗡️' : '🛡️'}</div>
                   <p className="text-xs text-center">{acc}</p>
@@ -180,7 +171,7 @@ const BackpackModal = ({ onClose }) => {
                   </button>
                 </div>
               ))}
-              {(!user?.cosmetics?.owned?.accessories || user.cosmetics.owned.accessories.length === 0) && (
+              {(!cosmetics.owned?.accessories || cosmetics.owned.accessories.length === 0) && (
                 <p className="text-gray-400 text-sm">No tienes accesorios. ¡Compra en la tienda!</p>
               )}
             </div>

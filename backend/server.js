@@ -444,7 +444,7 @@ app.put('/api/auth/change-password', authenticate, async (req, res) => {
 // Obtener perfil de usuario
 app.get('/api/auth/profile', authenticate, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select('username email stats completedChallenges');
+    const user = await User.findById(req.userId).select('username email stats completedChallenges cosmetics');
     res.json(user);
   } catch (error) {
     res.status(500).json({ error: error.message });
