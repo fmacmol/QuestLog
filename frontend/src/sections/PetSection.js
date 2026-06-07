@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useSwipeable } from 'react-swipeable';
 import ShopModal from '../modals/ShopModal';
+import BackpackModal from '../modals/BackpackModal';
+import DraggableCosmetic from '../components/DraggableCosmetic';
 
 const PetSection = ({ onBack }) => {
   const { user, token } = useAuth();
@@ -13,10 +15,33 @@ const PetSection = ({ onBack }) => {
   const [showGift, setShowGift] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showShop, setShowShop] = useState(false);
+  const [showBackpack, setShowBackpack] = useState(false);
+  const [cosmetics, setCosmetics] = useState({
+    hat: { itemId: null, position: { x: 50, y: 20 } },
+    accessory: { itemId: null, position: { x: 50, y: 80 } }
+  });
 
   useEffect(() => {
     loadPets();
-  }, []);
+    if (user?.cosmetics?.equipped) {
+      setCosmetics({
+        hat: { 
+          itemId: user.cosmetics.equipped.hat, 
+          position: user.cosmetics.equipped.position?.hat || { x: 50, y: 20 } 
+        },
+        accessory: { 
+          itemId: user.cosmetics.equipped.accessory, 
+          position: user.cosmetics.equipped.position?.accessory || { x: 50, y: 80 } 
+        }
+      });
+    } else {
+      // Valores por defecto si no existe cosmetics
+      setCosmetics({
+        hat: { itemId: null, position: { x: 50, y: 20 } },
+        accessory: { itemId: null, position: { x: 50, y: 80 } }
+      });
+    }
+  }, [user]);
 
   const loadPets = async () => {
     try {
@@ -118,6 +143,22 @@ const PetSection = ({ onBack }) => {
     setActiveIndex(data.activeIndex || 0);
   };
 
+  // Función para guardar posición
+  const updateCosmeticPosition = async (type, position) => {
+    try {
+      await fetch(`${process.env.REACT_APP_API_URL}/api/cosmetics/position`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ type, position })
+      });
+    } catch (error) {
+      console.error('Error guardando posición:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-cover bg-center bg-no-repeat relative">
       {activePet && (
@@ -208,7 +249,7 @@ const PetSection = ({ onBack }) => {
 
       </div>
 
-      {/* Barra inferior flotante (igual que antes) */}
+      {/* Barra inferior flotante */}
       <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-center pb-4">
         <div className="relative">
           <button
@@ -235,7 +276,7 @@ const PetSection = ({ onBack }) => {
               <button className="w-full btn-secondary text-sm py-2" onClick={() => setShowShop(true)}>
                 🛒 Tienda
               </button>
-              <button className="w-full btn-secondary text-sm py-2">
+              <button className="w-full btn-secondary text-sm py-2" onClick={() => setShowBackpack(true)}>
                 🎒 Mochila
               </button>
               <button className="w-full btn-secondary text-sm py-2">
@@ -256,6 +297,33 @@ const PetSection = ({ onBack }) => {
         <ShopModal 
           onClose={() => setShowShop(false)}
           refreshPets={refreshPets} // Pasamos la función para refrescar las mascotas después de comprar
+        />
+      )}
+
+      {/* Mostrar cosméticos arrastrables */}
+      {cosmetics.hat.itemId && (
+        <DraggableCosmetic
+          type="hat"
+          itemId={cosmetics.hat.itemId}
+          initialPosition={cosmetics.hat.position}
+          onPositionChange={updateCosmeticPosition}
+        />
+      )}
+      {cosmetics.accessory.itemId && (
+        <DraggableCosmetic
+          type="accessory"
+          itemId={cosmetics.accessory.itemId}
+          initialPosition={cosmetics.accessory.position}
+          onPositionChange={updateCosmeticPosition}
+        />
+      )}
+      {/* Modal de mochila */}
+      {showBackpack && (
+        <BackpackModal 
+          onClose={() => {
+            setShowBackpack(false);
+            refreshPets(); // Opcional: refrescar datos al cerrar
+          }}
         />
       )}
     </div>

@@ -633,6 +633,13 @@ app.post('/api/shop/buy-animal', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Monedas insuficientes' });
     }
     
+    if (!user.cosmetics) {
+      user.cosmetics = {
+        owned: { hats: [], accessories: [] },
+        equipped: { hat: null, accessory: null, position: { hat: { x: 50, y: 20 }, accessory: { x: 50, y: 80 } } }
+      };
+    }
+
     // Seleccionar animal aleatorio de los disponibles
     const randomAnimal = availableToBuy[Math.floor(Math.random() * availableToBuy.length)];
     const animalData = {
@@ -696,24 +703,104 @@ app.post('/api/shop/buy-cosmetic', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Monedas insuficientes' });
     }
     
+    if (!user.cosmetics) {
+      user.cosmetics = {
+        owned: { hats: [], accessories: [] },
+        equipped: { hat: null, accessory: null, position: { hat: { x: 50, y: 20 }, accessory: { x: 50, y: 80 } } }
+      };
+    }
+    
+    // Añadir el item a la colección correspondiente
     if (type === 'hat') {
-      user.cosmetics.hats = user.cosmetics.hats || [];
-      if (user.cosmetics.hats.includes(itemId)) {
+      if (!user.cosmetics.owned.hats.includes(itemId)) {
+        user.cosmetics.owned.hats.push(itemId);
+      } else {
         return res.status(400).json({ error: 'Ya tienes este sombrero' });
       }
-      user.cosmetics.hats.push(itemId);
     } else if (type === 'accessory') {
-      user.cosmetics.accessories = user.cosmetics.accessories || [];
-      if (user.cosmetics.accessories.includes(itemId)) {
+      if (!user.cosmetics.owned.accessories.includes(itemId)) {
+        user.cosmetics.owned.accessories.push(itemId);
+      } else {
         return res.status(400).json({ error: 'Ya tienes este accesorio' });
       }
-      user.cosmetics.accessories.push(itemId);
     }
     
     user.coins -= price;
     await user.save();
     
-    res.json({ success: true, coins: user.coins });
+    res.json({ success: true, coins: user.coins, cosmetics: user.cosmetics });
+  } catch (error) {
+    console.error('Error comprando cosmético:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// ===== RUTAS PARA COSMÉTICOS Y FONDOS =====
+
+// Cambiar fondo de una mascota específica
+app.post('/api/pets/change-background', authenticate, async (req, res) => {
+  try {
+    const { petIndex, backgroundId } = req.body;
+    const user = await User.findById(req.userId);
+    
+    if (!user.pets || !user.pets[petIndex]) {
+      return res.status(400).json({ error: 'Mascota no encontrada' });
+    }
+    
+    user.pets[petIndex].background = backgroundId;
+    await user.save();
+    
+    res.json({ success: true, pet: user.pets[petIndex] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Equipar un cosmético
+app.post('/api/cosmetics/equip', authenticate, async (req, res) => {
+  try {
+    const { type, itemId } = req.body; // type: 'hat' o 'accessory'
+    const user = await User.findById(req.userId);
+    
+    if (!user.cosmetics.owned[`${type}s`].includes(itemId)) {
+      return res.status(400).json({ error: 'No posees este cosmético' });
+    }
+    
+    user.cosmetics.equipped[type] = itemId;
+    await user.save();
+    
+    res.json({ success: true, cosmetics: user.cosmetics });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Desequipar un cosmético
+app.post('/api/cosmetics/unequip', authenticate, async (req, res) => {
+  try {
+    const { type } = req.body;
+    const user = await User.findById(req.userId);
+    
+    user.cosmetics.equipped[type] = null;
+    await user.save();
+    
+    res.json({ success: true, cosmetics: user.cosmetics });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Guardar posición de un cosmético
+app.put('/api/cosmetics/position', authenticate, async (req, res) => {
+  try {
+    const { type, position } = req.body; // type: 'hat' o 'accessory'
+    const user = await User.findById(req.userId);
+    
+    user.cosmetics.equipped.position[type] = position;
+    await user.save();
+    
+    res.json({ success: true, position });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

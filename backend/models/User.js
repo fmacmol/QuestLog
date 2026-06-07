@@ -22,8 +22,24 @@ const userSchema = new mongoose.Schema({
   activePetIndex: { type: Number, default: 0 },
   coins: { type: Number, default: 0 },
   cosmetics: {
-    hats: [{ type: String }],
-    accessories: [{ type: String }]
+    owned: {
+      hats: { type: [String], default: [] },
+      accessories: { type: [String], default: [] }
+    },
+    equipped: {
+      hat: { type: String, default: null },
+      accessory: { type: String, default: null },
+      position: {
+        hat: {
+          x: { type: Number, default: 50 },
+          y: { type: Number, default: 20 }
+        },
+        accessory: {
+          x: { type: Number, default: 50 },
+          y: { type: Number, default: 80 }
+        }
+      }
+    }
   }
 });
 

@@ -35,9 +35,15 @@ const ShopModal = ({ onClose, onRefresh}) => {
     } else if (type === 'background') {
       url = '/api/shop/buy-background';
       body = { petIndex, backgroundId: itemId };
-    } else {
+    } else if (type === 'hat') {
       url = '/api/shop/buy-cosmetic';
-      body = { type: itemId.startsWith('sombrero') || itemId.startsWith('corona') ? 'hat' : 'accessory', itemId };
+      body = { type: 'hat', itemId };
+    } else if (type === 'accessory') {
+      url = '/api/shop/buy-cosmetic';
+      body = { type: 'accessory', itemId };
+    } else {
+      showToast('Tipo de artículo no válido', 'error');
+      return;
     }
 
     try {
@@ -50,16 +56,18 @@ const ShopModal = ({ onClose, onRefresh}) => {
         body: JSON.stringify(body)
       });
       const data = await res.json();
+      
       if (res.ok) {
         showToast('Compra realizada con éxito', 'success');
-        // Actualizar las monedas en el contexto del usuario
         if (data.coins !== undefined) updateUser({ coins: data.coins });
-        if (onRefresh) onRefresh(); // Recargar datos de mascotas
-        onClose(); // Cerrar la tienda después de la compra
+        if (data.cosmetics !== undefined) updateUser({ cosmetics: data.cosmetics });
+        if (onRefresh) onRefresh();
+        onClose();
       } else {
         showToast(data.error || 'Error en la compra', 'error');
       }
     } catch (error) {
+      console.error('Error:', error);
       showToast('Error al realizar la compra', 'error');
     }
   };
@@ -140,7 +148,7 @@ const ShopModal = ({ onClose, onRefresh}) => {
                   <h3 className="font-bold text-gray-300">{hat.name}</h3>
                   <div className="flex items-center gap-4">
                     <span className="text-rpg-gold">{hat.price}💰</span>
-                    <button onClick={() => buyItem('cosmetic', hat.id)} className="btn-secondary text-sm px-3 py-1">Comprar</button>
+                    <button onClick={() => buyItem('hat', hat.id)} className="btn-secondary text-sm px-3 py-1">Comprar</button>
                   </div>
                 </div>
               ))}
@@ -150,7 +158,7 @@ const ShopModal = ({ onClose, onRefresh}) => {
                   <h3 className="font-bold text-gray-300">{acc.name}</h3>
                   <div className="flex items-center gap-4">
                     <span className="text-rpg-gold">{acc.price}💰</span>
-                    <button onClick={() => buyItem('cosmetic', acc.id)} className="btn-secondary text-sm px-3 py-1">Comprar</button>
+                    <button onClick={() => buyItem('accessory', acc.id)} className="btn-secondary text-sm px-3 py-1">Comprar</button>
                   </div>
                 </div>
               ))}
