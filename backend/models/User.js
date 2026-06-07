@@ -19,7 +19,12 @@ const userSchema = new mongoose.Schema({
     stage: { type: String, default: 'egg' },
     isActive: { type: Boolean, default: false }
   }],
-  activePetIndex: { type: Number, default: 0 }
+  activePetIndex: { type: Number, default: 0 },
+  coins: { type: Number, default: 0 },
+  cosmetics: {
+    hats: [{ type: String }],
+    accessories: [{ type: String }]
+  }
 });
 
 module.exports = mongoose.model('User', userSchema);

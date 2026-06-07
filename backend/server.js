@@ -211,6 +211,7 @@ app.put('/api/quests/:id', authenticate, async (req, res) => {
 
     const user = await User.findById(req.userId);
     const isChallenge = !!quest.fromChallenge;
+    const earnedCoins = Math.floor(quest.xpReward / 10);
 
     // Caso 1: Se completa ahora (false -> true)
     if (!wasCompleted && isNowCompleted) {
@@ -224,6 +225,10 @@ app.put('/api/quests/:id', authenticate, async (req, res) => {
       } else {
         user.stats.completedQuests += 1;
       }
+
+      // AÑADIR MONEDAS
+      user.coins = (user.coins || 0) + earnedCoins;
+
       await user.save();
     }
     
@@ -239,6 +244,10 @@ app.put('/api/quests/:id', authenticate, async (req, res) => {
       } else {
         user.stats.completedQuests -= 1;
       }
+
+      // RESTAR MONEDAS
+      user.coins = (user.coins && user.coins >= earnedCoins ? user.coins - earnedCoins : 0);
+
       await user.save();
     }
 
@@ -269,7 +278,8 @@ app.put('/api/quests/:id', authenticate, async (req, res) => {
     // Enviar también información de evolución si ocurrió
     res.json({ 
       quest: updatedQuest,
-      petEvolution: req.petEvolution || null
+      petEvolution: req.petEvolution || null,
+      coins: user.coins
     });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -571,6 +581,139 @@ app.post('/api/pets/activate', authenticate, async (req, res) => {
     await user.save();
     
     res.json({ success: true, activeIndex: index });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// ===== RUTAS PARA TIENDA =====
+
+// Obtener catálogo de items disponibles
+app.get('/api/shop/items', async (req, res) => {
+  const items = {
+    animals: [
+      { id: 'axolotl', name: 'Ajolote', price: 500, type: 'animal', background: 'sea' },
+      { id: 'dragon', name: 'Dragón', price: 800, type: 'animal', background: 'volcano' },
+      { id: 'penguin', name: 'Pingüino', price: 600, type: 'animal', background: 'ice' }
+    ],
+    backgrounds: [
+      { id: 'sea', name: 'Fondo Marino', price: 300, type: 'background' },
+      { id: 'volcano', name: 'Fondo Volcánico', price: 300, type: 'background' },
+      { id: 'ice', name: 'Fondo Helado', price: 300, type: 'background' }
+    ],
+    cosmetics: {
+      hats: [
+        { id: 'sombrero', name: 'Sombrero', price: 150 },
+        { id: 'corona', name: 'Corona', price: 300 }
+      ],
+      accessories: [
+        { id: 'espada', name: 'Espada', price: 200 },
+        { id: 'escudo', name: 'Escudo', price: 250 }
+      ]
+    }
+  };
+  res.json(items);
+});
+
+// Comprar un animal (huevo aleatorio de los no poseídos)
+app.post('/api/shop/buy-animal', authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    const availableAnimals = ['axolotl', 'dragon', 'penguin'];
+    const ownedAnimals = user.pets.map(pet => pet.animal);
+    const availableToBuy = availableAnimals.filter(a => !ownedAnimals.includes(a));
+    
+    if (availableToBuy.length === 0) {
+      return res.status(400).json({ error: 'Ya tienes todos los animales' });
+    }
+    
+    const price = 500;
+    if ((user.coins || 0) < price) {
+      return res.status(400).json({ error: 'Monedas insuficientes' });
+    }
+    
+    // Seleccionar animal aleatorio de los disponibles
+    const randomAnimal = availableToBuy[Math.floor(Math.random() * availableToBuy.length)];
+    const animalData = {
+      animal: randomAnimal,
+      background: 'default', // Fondo por defecto
+      stage: getPetStageByXP(user.stats.totalXP),
+      isActive: false
+    };
+    
+    user.pets.push(animalData);
+    user.coins -= price;
+    await user.save();
+    
+    res.json({ success: true, pet: animalData, coins: user.coins });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Comprar fondo para una mascota
+app.post('/api/shop/buy-background', authenticate, async (req, res) => {
+  try {
+    const { petIndex, backgroundId } = req.body;
+    const user = await User.findById(req.userId);
+    
+    if (!user.pets[petIndex]) {
+      return res.status(400).json({ error: 'Mascota no encontrada' });
+    }
+    
+    const backgrounds = { sea: 300, volcano: 300, ice: 300 };
+    const price = backgrounds[backgroundId];
+    
+    if (!price) return res.status(400).json({ error: 'Fondo no válido' });
+    if ((user.coins || 0) < price) {
+      return res.status(400).json({ error: 'Monedas insuficientes' });
+    }
+    
+    user.pets[petIndex].background = backgroundId;
+    user.coins -= price;
+    await user.save();
+    
+    res.json({ success: true, pet: user.pets[petIndex], coins: user.coins });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Comprar cosmético (sombrero o accesorio)
+app.post('/api/shop/buy-cosmetic', authenticate, async (req, res) => {
+  try {
+    const { type, itemId } = req.body; // type: 'hat' o 'accessory'
+    const user = await User.findById(req.userId);
+    
+    const prices = {
+      sombrero: 150, corona: 300, espada: 200, escudo: 250
+    };
+    const price = prices[itemId];
+    
+    if (!price) return res.status(400).json({ error: 'Item no válido' });
+    if ((user.coins || 0) < price) {
+      return res.status(400).json({ error: 'Monedas insuficientes' });
+    }
+    
+    if (type === 'hat') {
+      user.cosmetics.hats = user.cosmetics.hats || [];
+      if (user.cosmetics.hats.includes(itemId)) {
+        return res.status(400).json({ error: 'Ya tienes este sombrero' });
+      }
+      user.cosmetics.hats.push(itemId);
+    } else if (type === 'accessory') {
+      user.cosmetics.accessories = user.cosmetics.accessories || [];
+      if (user.cosmetics.accessories.includes(itemId)) {
+        return res.status(400).json({ error: 'Ya tienes este accesorio' });
+      }
+      user.cosmetics.accessories.push(itemId);
+    }
+    
+    user.coins -= price;
+    await user.save();
+    
+    res.json({ success: true, coins: user.coins });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

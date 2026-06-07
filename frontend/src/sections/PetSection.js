@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useSwipeable } from 'react-swipeable';
+import ShopModal from '../modals/ShopModal';
 
 const PetSection = ({ onBack }) => {
   const { user, token } = useAuth();
@@ -11,6 +12,7 @@ const PetSection = ({ onBack }) => {
   const [loading, setLoading] = useState(true);
   const [showGift, setShowGift] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [showShop, setShowShop] = useState(false);
 
   useEffect(() => {
     loadPets();
@@ -94,7 +96,7 @@ const PetSection = ({ onBack }) => {
   };
 
   const getBackgroundImage = (pet) => {
-    return `/images/backgrounds/${pet.background}.jpg`;
+    return `/images/backgrounds/${pet.background}.png`;
   };
 
   if (loading) {
@@ -106,6 +108,15 @@ const PetSection = ({ onBack }) => {
   }
 
   const activePet = pets[activeIndex];
+
+  const refreshPets = async () => {
+    const res = await fetch(`${process.env.REACT_APP_API_URL}/api/pets`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    setPets(data.pets);
+    setActiveIndex(data.activeIndex || 0);
+  };
 
   return (
     <div className="min-h-screen bg-cover bg-center bg-no-repeat relative">
@@ -221,6 +232,9 @@ const PetSection = ({ onBack }) => {
           >
             <div className="p-4 space-y-2">
               <p className="text-center text-rpg-gold font-bold mb-2">Opciones</p>
+              <button className="w-full btn-secondary text-sm py-2" onClick={() => setShowShop(true)}>
+                🛒 Tienda
+              </button>
               <button className="w-full btn-secondary text-sm py-2">
                 🎒 Mochila
               </button>
@@ -237,6 +251,13 @@ const PetSection = ({ onBack }) => {
           </div>
         </div>
       </div>
+      {/* Modal de tienda */}
+      {showShop && (
+        <ShopModal 
+          onClose={() => setShowShop(false)}
+          refreshPets={refreshPets} // Pasamos la función para refrescar las mascotas después de comprar
+        />
+      )}
     </div>
   );
 };

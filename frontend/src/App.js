@@ -373,7 +373,8 @@ function App() {
     // Actualizar en servidor (si aplica)
     if (user && token && !quest._id.startsWith('local_')) {
       try {
-        await safeFetch(
+        // ✅ GUARDAR LA RESPUESTA
+        const response = await safeFetch(
           `${process.env.REACT_APP_API_URL}/api/quests/${quest._id}`,
           {
             method: 'PUT',
@@ -385,12 +386,16 @@ function App() {
           },
           null
         );
+        
         refreshUserProfile(); // Refrescar perfil para actualizar estadísticas
+
+        // Actualizar monedas en el contexto del usuario
+        if (response?.coins !== undefined) {
+          updateUser({ coins: response.coins });
+        }
 
         // Mostrar notificación de evolución de mascota si ocurrió
         if (response?.petEvolution) {
-          const stageNames = { baby: 'bebé', adult: 'adulta' };
-          const stageName = stageNames[response.petEvolution];
           if (response.petEvolution === 'baby') {
             showToast('¡Tu huevo ha eclosionado! Tu mascota es ahora un bebé', 'success');
           } else if (response.petEvolution === 'adult') {
