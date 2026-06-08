@@ -3,12 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useSwipeable } from 'react-swipeable';
 import ShopModal from '../modals/ShopModal';
-import BackpackModal from '../modals/BackpackModal';
-import BackgroundsModal from '../modals/BackgroundsModal';
-import DraggableCosmetic from '../components/DraggableCosmetic';
 
 const PetSection = ({ onBack }) => {
-  const { user, token, updateUser } = useAuth();
+  const { user, token } = useAuth();
   const { showToast } = useToast();
   const [pets, setPets] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -16,35 +13,10 @@ const PetSection = ({ onBack }) => {
   const [showGift, setShowGift] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showShop, setShowShop] = useState(false);
-  const [showBackpack, setShowBackpack] = useState(false);
-  const [cosmetics, setCosmetics] = useState({
-    hat: { itemId: null, position: { x: 50, y: 20 } },
-    accessory: { itemId: null, position: { x: 50, y: 80 } }
-  });
-  const [showBackgrounds, setShowBackgrounds] = useState(false);
-  
 
   useEffect(() => {
     loadPets();
-    if (user?.cosmetics?.equipped) {
-      setCosmetics({
-        hat: { 
-          itemId: user.cosmetics.equipped.hat, 
-          position: user.cosmetics.equipped.position?.hat || { x: 50, y: 20 } 
-        },
-        accessory: { 
-          itemId: user.cosmetics.equipped.accessory, 
-          position: user.cosmetics.equipped.position?.accessory || { x: 50, y: 80 } 
-        }
-      });
-    } else {
-      // Valores por defecto si no existe cosmetics
-      setCosmetics({
-        hat: { itemId: null, position: { x: 50, y: 20 } },
-        accessory: { itemId: null, position: { x: 50, y: 80 } }
-      });
-    }
-  }, [user]);
+  }, []);
 
   const loadPets = async () => {
     try {
@@ -108,7 +80,6 @@ const PetSection = ({ onBack }) => {
     }
   };
 
-  // Handlers para swipe
   const swipeHandlers = useSwipeable({
     onSwipedLeft: () => changePet(activeIndex + 1),
     onSwipedRight: () => changePet(activeIndex - 1),
@@ -127,16 +98,6 @@ const PetSection = ({ onBack }) => {
     return `/images/backgrounds/${pet.background}.png`;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-rpg-dark flex items-center justify-center">
-        <div className="text-rpg-gold text-2xl animate-pulse">Cargando tus mascotas...</div>
-      </div>
-    );
-  }
-
-  const activePet = pets[activeIndex];
-
   const refreshPets = async () => {
     const res = await fetch(`${process.env.REACT_APP_API_URL}/api/pets`, {
       headers: { 'Authorization': `Bearer ${token}` }
@@ -146,35 +107,15 @@ const PetSection = ({ onBack }) => {
     setActiveIndex(data.activeIndex || 0);
   };
 
-  const refreshUserProfile = async () => {
-    const res = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/profile`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const data = await res.json();
-    updateUser({
-      stats: data.stats,
-      completedChallenges: data.completedChallenges,
-      coins: data.coins,
-      cosmetics: data.cosmetics,
-      pets: data.pets
-    });
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-rpg-dark flex items-center justify-center">
+        <div className="text-rpg-gold text-2xl animate-pulse">Cargando tus mascotas...</div>
+      </div>
+    );
+  }
 
-  // Función para guardar posición
-  const updateCosmeticPosition = async (type, position) => {
-    try {
-      await fetch(`${process.env.REACT_APP_API_URL}/api/cosmetics/position`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ type, position })
-      });
-    } catch (error) {
-      console.error('Error guardando posición:', error);
-    }
-  };
+  const activePet = pets[activeIndex];
 
   return (
     <div className="min-h-screen bg-cover bg-center bg-no-repeat relative">
@@ -200,7 +141,6 @@ const PetSection = ({ onBack }) => {
       {/* Contenido principal */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6">
         
-        {/* Regalo */}
         {showGift && (
           <div className="text-center animate-bounce cursor-pointer" onClick={openGift}>
             <div className="text-9xl mb-4">🎁</div>
@@ -209,20 +149,14 @@ const PetSection = ({ onBack }) => {
           </div>
         )}
 
-        {/* Carrusel */}
         {!showGift && pets.length > 0 && activePet && (
           <div {...swipeHandlers} className="text-center w-full">
             <div className="relative">
-              {/* Indicador de que se puede deslizar */}
               {pets.length > 1 && (
-                <div className="absolute top-1/2 -translate-y-1/2 left-2 text-rpg-gold/50">
-                  ◀
-                </div>
+                <div className="absolute top-1/2 -translate-y-1/2 left-2 text-rpg-gold/50">◀</div>
               )}
               {pets.length > 1 && (
-                <div className="absolute top-1/2 -translate-y-1/2 right-2 text-rpg-gold/50">
-                  ▶
-                </div>
+                <div className="absolute top-1/2 -translate-y-1/2 right-2 text-rpg-gold/50">▶</div>
               )}
               <img 
                 src={getPetImage(activePet)} 
@@ -257,13 +191,10 @@ const PetSection = ({ onBack }) => {
             </p>
             
             {pets.length > 1 && (
-              <p className="text-gray-400 text-sm mt-2">
-                Desliza para cambiar de mascota
-              </p>
+              <p className="text-gray-400 text-sm mt-2">Desliza para cambiar de mascota</p>
             )}
           </div>
         )}
-
       </div>
 
       {/* Barra inferior flotante */}
@@ -306,56 +237,13 @@ const PetSection = ({ onBack }) => {
           </div>
         </div>
       </div>
+
       {/* Modal de tienda */}
       {showShop && (
         <ShopModal 
           onClose={() => setShowShop(false)}
           refreshPets={refreshPets}
           activePetIndex={activeIndex}
-        />
-      )}
-      {/* Modal de fondos */}
-      {showBackgrounds && (
-        <BackgroundsModal 
-          onClose={() => setShowBackgrounds(false)}
-          onSelectBackground={(newBg) => {
-            // Actualizar la mascota activa en el estado local
-            setPets(prevPets => {
-              const newPets = [...prevPets];
-              if (newPets[activeIndex]) {
-                newPets[activeIndex].background = newBg;
-              }
-              return newPets;
-            });
-            refreshPets();
-          }}
-        />
-      )}
-
-      {/* Mostrar cosméticos arrastrables */}
-      {cosmetics.hat.itemId && (
-        <DraggableCosmetic
-          type="hat"
-          itemId={cosmetics.hat.itemId}
-          initialPosition={cosmetics.hat.position}
-          onPositionChange={updateCosmeticPosition}
-        />
-      )}
-      {cosmetics.accessory.itemId && (
-        <DraggableCosmetic
-          type="accessory"
-          itemId={cosmetics.accessory.itemId}
-          initialPosition={cosmetics.accessory.position}
-          onPositionChange={updateCosmeticPosition}
-        />
-      )}
-      {/* Modal de mochila */}
-      {showBackpack && (
-        <BackpackModal 
-          onClose={() => {
-            setShowBackpack(false);
-            refreshPets();
-          }}
         />
       )}
     </div>

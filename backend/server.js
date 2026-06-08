@@ -506,15 +506,6 @@ app.put('/api/auth/change-username', authenticate, async (req, res) => {
   }
 });
 
-// Obtener estadísticas y perfil actualizado
-/*app.get('/api/auth/me', authenticate, async (req, res) => {
-  try {
-    const user = await User.findById(req.userId).select('-password');
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ error: 'Error al obtener perfil' });
-  }
-});*/
 
 // ===== RUTAS PARA MASCOTA =====
 
@@ -660,8 +651,7 @@ app.post('/api/shop/buy-animal', authenticate, async (req, res) => {
   }
 });
 
-// Comprar fondo para una mascota
-// Comprar fondo (solo añadir a la colección del usuario, sin aplicar a ninguna mascota)
+// Comprar fondo para mascota
 app.post('/api/shop/buy-background', authenticate, async (req, res) => {
   try {
     const { backgroundId } = req.body;
@@ -757,55 +747,6 @@ app.post('/api/pets/change-background', authenticate, async (req, res) => {
     await user.save();
     
     res.json({ success: true, pet: user.pets[activeIndex] });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Equipar un cosmético
-app.post('/api/cosmetics/equip', authenticate, async (req, res) => {
-  try {
-    const { type, itemId } = req.body; // type: 'hat' o 'accessory'
-    const user = await User.findById(req.userId);
-    
-    if (!user.cosmetics.owned[`${type}s`].includes(itemId)) {
-      return res.status(400).json({ error: 'No posees este cosmético' });
-    }
-    
-    user.cosmetics.equipped[type] = itemId;
-    await user.save();
-    
-    res.json({ success: true, cosmetics: user.cosmetics });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Desequipar un cosmético
-app.post('/api/cosmetics/unequip', authenticate, async (req, res) => {
-  try {
-    const { type } = req.body;
-    const user = await User.findById(req.userId);
-    
-    user.cosmetics.equipped[type] = null;
-    await user.save();
-    
-    res.json({ success: true, cosmetics: user.cosmetics });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Guardar posición de un cosmético
-app.put('/api/cosmetics/position', authenticate, async (req, res) => {
-  try {
-    const { type, position } = req.body; // type: 'hat' o 'accessory'
-    const user = await User.findById(req.userId);
-    
-    user.cosmetics.equipped.position[type] = position;
-    await user.save();
-    
-    res.json({ success: true, position });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
