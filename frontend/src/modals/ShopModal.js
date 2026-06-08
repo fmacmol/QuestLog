@@ -3,12 +3,13 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
 
-const ShopModal = ({ onClose, onRefresh}) => {
+const ShopModal = ({ onClose, onRefresh, activePetIndex }) => {
   const { user, token, updateUser } = useAuth();
   const { showToast } = useToast();
   const [items, setItems] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('animals');
+  
 
   useEffect(() => {
     fetchItems();
@@ -32,9 +33,10 @@ const ShopModal = ({ onClose, onRefresh}) => {
 
     if (type === 'animal') {
       url = '/api/shop/buy-animal';
+      body = { rarity: itemId };
     } else if (type === 'background') {
       url = '/api/shop/buy-background';
-      body = { petIndex, backgroundId: itemId };
+      body = { backgroundId: itemId };
     } else if (type === 'hat') {
       url = '/api/shop/buy-cosmetic';
       body = { type: 'hat', itemId };
@@ -61,6 +63,21 @@ const ShopModal = ({ onClose, onRefresh}) => {
         showToast('Compra realizada con éxito', 'success');
         if (data.coins !== undefined) updateUser({ coins: data.coins });
         if (data.cosmetics !== undefined) updateUser({ cosmetics: data.cosmetics });
+
+        // Recargar el perfil completo para actualizar pets (y sus fondos)
+        const profileRes = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const profileData = await profileRes.json();
+        updateUser({
+          stats: profileData.stats,
+          completedChallenges: profileData.completedChallenges,
+          coins: profileData.coins,
+          cosmetics: profileData.cosmetics,
+          pets: profileData.pets,
+          ownedBackgrounds: profileData.ownedBackgrounds
+        });
+
         if (onRefresh) onRefresh();
         onClose();
       } else {
@@ -114,11 +131,13 @@ const ShopModal = ({ onClose, onRefresh}) => {
             <div key={animal.id} className="bg-rpg-dark/30 rounded-lg p-3 flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-rpg-gold">{animal.name}</h3>
-                <p className="text-sm text-gray-400">Huevo misterioso</p>
+                <p className="text-sm text-gray-400">Rareza: {animal.rarity}</p>
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-rpg-gold">{animal.price}💰</span>
-                <button onClick={() => buyItem('animal', animal.id)} className="btn-secondary text-sm px-3 py-1">Comprar</button>
+                <button onClick={() => buyItem('animal', animal.id)} className="btn-secondary text-sm px-3 py-1">
+                  Comprar
+                </button>
               </div>
             </div>
           ))}
@@ -127,15 +146,16 @@ const ShopModal = ({ onClose, onRefresh}) => {
             <div key={bg.id} className="bg-rpg-dark/30 rounded-lg p-3 flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-rpg-gold">{bg.name}</h3>
-                <p className="text-sm text-gray-400">Cambia el fondo de tu mascota</p>
+                <p className="text-sm text-gray-400">Cambia el fondo de tu mascota activa</p>
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-rpg-gold">{bg.price}💰</span>
-                <button onClick={() => {
-                  // Aquí deberías seleccionar qué mascota editar
-                  const petIndex = prompt('¿A qué mascota quieres poner este fondo? (0, 1, 2...)');
-                  if (petIndex !== null) buyItem('background', bg.id, parseInt(petIndex));
-                }} className="btn-secondary text-sm px-3 py-1">Comprar</button>
+                <button 
+                  onClick={() => buyItem('background', bg.id)} 
+                  className="btn-secondary text-sm px-3 py-1"
+                >
+                  Comprar
+                </button>
               </div>
             </div>
           ))}

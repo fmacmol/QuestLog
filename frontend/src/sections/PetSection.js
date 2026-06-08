@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { useSwipeable } from 'react-swipeable';
 import ShopModal from '../modals/ShopModal';
 import BackpackModal from '../modals/BackpackModal';
+import BackgroundsModal from '../modals/BackgroundsModal';
 import DraggableCosmetic from '../components/DraggableCosmetic';
 
 const PetSection = ({ onBack }) => {
@@ -20,6 +21,8 @@ const PetSection = ({ onBack }) => {
     hat: { itemId: null, position: { x: 50, y: 20 } },
     accessory: { itemId: null, position: { x: 50, y: 80 } }
   });
+  const [showBackgrounds, setShowBackgrounds] = useState(false);
+  
 
   useEffect(() => {
     loadPets();
@@ -141,6 +144,20 @@ const PetSection = ({ onBack }) => {
     const data = await res.json();
     setPets(data.pets);
     setActiveIndex(data.activeIndex || 0);
+  };
+
+  const refreshUserProfile = async () => {
+    const res = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/profile`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    updateUser({
+      stats: data.stats,
+      completedChallenges: data.completedChallenges,
+      coins: data.coins,
+      cosmetics: data.cosmetics,
+      pets: data.pets
+    });
   };
 
   // Función para guardar posición
@@ -276,17 +293,14 @@ const PetSection = ({ onBack }) => {
               <button className="w-full btn-secondary text-sm py-2" onClick={() => setShowShop(true)}>
                 🛒 Tienda
               </button>
-              <button className="w-full btn-secondary text-sm py-2" onClick={() => setShowBackpack(true)}>
-                🎒 Mochila
+              <button className="w-full btn-secondary text-sm py-2" onClick={() => showToast('Próximamente', 'info')}>
+                🖼️ Fondos
               </button>
-              <button className="w-full btn-secondary text-sm py-2">
-                🍖 Alimentar
-              </button>
-              <button className="w-full btn-secondary text-sm py-2">
+              <button className="w-full btn-secondary text-sm py-2" onClick={() => showToast('Próximamente', 'info')}>
                 🎽 Vestir
               </button>
-              <button className="w-full btn-secondary text-sm py-2">
-                💤 Descansar
+              <button className="w-full btn-secondary text-sm py-2" onClick={() => showToast('Próximamente', 'info')}>
+                ⚔️ Decoración
               </button>
             </div>
           </div>
@@ -296,7 +310,25 @@ const PetSection = ({ onBack }) => {
       {showShop && (
         <ShopModal 
           onClose={() => setShowShop(false)}
-          refreshPets={refreshPets} // Pasamos la función para refrescar las mascotas después de comprar
+          refreshPets={refreshPets}
+          activePetIndex={activeIndex}
+        />
+      )}
+      {/* Modal de fondos */}
+      {showBackgrounds && (
+        <BackgroundsModal 
+          onClose={() => setShowBackgrounds(false)}
+          onSelectBackground={(newBg) => {
+            // Actualizar la mascota activa en el estado local
+            setPets(prevPets => {
+              const newPets = [...prevPets];
+              if (newPets[activeIndex]) {
+                newPets[activeIndex].background = newBg;
+              }
+              return newPets;
+            });
+            refreshPets();
+          }}
         />
       )}
 

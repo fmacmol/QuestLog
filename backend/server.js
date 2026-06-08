@@ -81,7 +81,7 @@ app.post('/api/auth/register', async (req, res) => {
     
     res.status(201).json({ 
       token, 
-      user: { id: user._id, username, email } 
+      user: { id: user._id, username, email, ownedBackgrounds: user.ownedBackgrounds || [] } 
     });
   } catch (error) {
     console.error('ERROR:', error);
@@ -444,7 +444,7 @@ app.put('/api/auth/change-password', authenticate, async (req, res) => {
 // Obtener perfil de usuario
 app.get('/api/auth/profile', authenticate, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select('username email stats completedChallenges cosmetics');
+    const user = await User.findById(req.userId).select('username email stats completedChallenges cosmetics coins pets ownedBackgrounds');
     res.json(user);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -593,9 +593,9 @@ app.post('/api/pets/activate', authenticate, async (req, res) => {
 app.get('/api/shop/items', async (req, res) => {
   const items = {
     animals: [
-      { id: 'axolotl', name: 'Ajolote', price: 500, type: 'animal', background: 'sea' },
-      { id: 'dragon', name: 'Dragón', price: 800, type: 'animal', background: 'volcano' },
-      { id: 'penguin', name: 'Pingüino', price: 600, type: 'animal', background: 'ice' }
+      { id: 'common', name: 'Huevo misterioso', rarity: 'Común', price: 300, type: 'animal' },
+      { id: 'rare', name: 'Huevo misterioso', rarity: 'Raro', price: 600, type: 'animal' },
+      { id: 'mythical', name: 'Huevo misterioso', rarity: 'Mitológico', price: 1000, type: 'animal' }
     ],
     backgrounds: [
       { id: 'sea', name: 'Fondo Marino', price: 300, type: 'background' },
@@ -619,55 +619,53 @@ app.get('/api/shop/items', async (req, res) => {
 // Comprar un animal (huevo aleatorio de los no poseídos)
 app.post('/api/shop/buy-animal', authenticate, async (req, res) => {
   try {
+    const { rarity } = req.body; // 'common', 'rare', 'mythical'
     const user = await User.findById(req.userId);
-    const availableAnimals = ['axolotl', 'dragon', 'penguin'];
-    const ownedAnimals = user.pets.map(pet => pet.animal);
-    const availableToBuy = availableAnimals.filter(a => !ownedAnimals.includes(a));
     
-    if (availableToBuy.length === 0) {
-      return res.status(400).json({ error: 'Ya tienes todos los animales' });
-    }
+    const prices = { common: 300, rare: 600, mythical: 1000 };
+    const price = prices[rarity];
     
-    const price = 500;
     if ((user.coins || 0) < price) {
       return res.status(400).json({ error: 'Monedas insuficientes' });
     }
     
-    if (!user.cosmetics) {
-      user.cosmetics = {
-        owned: { hats: [], accessories: [] },
-        equipped: { hat: null, accessory: null, position: { hat: { x: 50, y: 20 }, accessory: { x: 50, y: 80 } } }
-      };
-    }
-
-    // Seleccionar animal aleatorio de los disponibles
-    const randomAnimal = availableToBuy[Math.floor(Math.random() * availableToBuy.length)];
-    const animalData = {
-      animal: randomAnimal,
-      background: 'default', // Fondo por defecto
-      stage: getPetStageByXP(user.stats.totalXP),
-      isActive: false
+    // Seleccionar animal aleatorio según rareza
+    const animalsByRarity = {
+      common: ['axolotl'],
+      rare: ['penguin'],
+      mythical: ['dragon']
+    };
+    const availableAnimals = animalsByRarity[rarity];
+    const randomAnimal = availableAnimals[Math.floor(Math.random() * availableAnimals.length)];
+    
+    // Asignar fondo por defecto según animal
+    const defaultBackgrounds = {
+      axolotl: 'sea',
+      penguin: 'ice',
+      dragon: 'volcano'
     };
     
-    user.pets.push(animalData);
+    user.pets.push({
+      animal: randomAnimal,
+      background: defaultBackgrounds[randomAnimal],
+      stage: getPetStageByXP(user.stats.totalXP),
+      isActive: false
+    });
     user.coins -= price;
     await user.save();
     
-    res.json({ success: true, pet: animalData, coins: user.coins });
+    res.json({ success: true, pet: user.pets[user.pets.length - 1], coins: user.coins });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
 // Comprar fondo para una mascota
+// Comprar fondo (solo añadir a la colección del usuario, sin aplicar a ninguna mascota)
 app.post('/api/shop/buy-background', authenticate, async (req, res) => {
   try {
-    const { petIndex, backgroundId } = req.body;
+    const { backgroundId } = req.body;
     const user = await User.findById(req.userId);
-    
-    if (!user.pets[petIndex]) {
-      return res.status(400).json({ error: 'Mascota no encontrada' });
-    }
     
     const backgrounds = { sea: 300, volcano: 300, ice: 300 };
     const price = backgrounds[backgroundId];
@@ -677,11 +675,17 @@ app.post('/api/shop/buy-background', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Monedas insuficientes' });
     }
     
-    user.pets[petIndex].background = backgroundId;
+    // Añadir a la colección de fondos del usuario si no lo tiene ya
+    if (!user.ownedBackgrounds.includes(backgroundId)) {
+      user.ownedBackgrounds.push(backgroundId);
+    } else {
+      return res.status(400).json({ error: 'Ya tienes este fondo' });
+    }
+    
     user.coins -= price;
     await user.save();
     
-    res.json({ success: true, pet: user.pets[petIndex], coins: user.coins });
+    res.json({ success: true, coins: user.coins, ownedBackgrounds: user.ownedBackgrounds });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -741,17 +745,18 @@ app.post('/api/shop/buy-cosmetic', authenticate, async (req, res) => {
 // Cambiar fondo de una mascota específica
 app.post('/api/pets/change-background', authenticate, async (req, res) => {
   try {
-    const { petIndex, backgroundId } = req.body;
+    const { backgroundId } = req.body;
     const user = await User.findById(req.userId);
     
-    if (!user.pets || !user.pets[petIndex]) {
+    const activeIndex = user.activePetIndex || 0;
+    if (!user.pets || !user.pets[activeIndex]) {
       return res.status(400).json({ error: 'Mascota no encontrada' });
     }
     
-    user.pets[petIndex].background = backgroundId;
+    user.pets[activeIndex].background = backgroundId;
     await user.save();
     
-    res.json({ success: true, pet: user.pets[petIndex] });
+    res.json({ success: true, pet: user.pets[activeIndex] });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

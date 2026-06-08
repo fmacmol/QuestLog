@@ -22,7 +22,8 @@ export const AuthProvider = ({ children }) => {
         email: parsedUser.email,
         isAdmin: parsedUser.isAdmin || false,
         stats: parsedUser.stats || { totalXP: 0, completedQuests: 0, completedChallenges: 0 },
-        completedChallenges: parsedUser.completedChallenges || []
+        completedChallenges: parsedUser.completedChallenges || [],
+        ownedBackgrounds: parsedUser.ownedBackgrounds || []
       });
     }
     
@@ -36,7 +37,8 @@ export const AuthProvider = ({ children }) => {
       email: userData.email,
       isAdmin: userData.isAdmin || false,
       stats: userData.stats || { totalXP: 0, level: 1, completedQuests: 0, completedChallenges: 0 },
-      completedChallenges: userData.completedChallenges || []
+      completedChallenges: userData.completedChallenges || [],
+      ownedBackgrounds: userData.ownedBackgrounds || []
     };
     
     setUser(userForState);

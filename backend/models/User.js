@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema({
     stage: { type: String, default: 'egg' },
     isActive: { type: Boolean, default: false }
   }],
+  ownedBackgrounds: { type: [String], default: [] },
   activePetIndex: { type: Number, default: 0 },
   coins: { type: Number, default: 0 },
   cosmetics: {
