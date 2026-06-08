@@ -67,7 +67,7 @@ export const AuthProvider = ({ children }) => {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const updatedUser = await response.json();
-    updateUser(updatedUser); // Usando la función updateUser que ya creamos
+    updateUser(updatedUser); 
   };
 
   const value = {

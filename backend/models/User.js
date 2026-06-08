@@ -5,14 +5,11 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
-  isAdmin: { type: Boolean, default: false },
   stats: {
     totalXP: { type: Number, default: 0 },
     level: { type: Number, default: 1 },
     completedQuests: { type: Number, default: 0 },
-    completedChallenges: { type: Number, default: 0 }
   },
-  completedChallenges: [{ type: mongoose.Schema.Types.ObjectId, ref: 'PublicChallenge' }],
   pets: [{
     animal: { type: String, required: true },
     background: { type: String, required: true },
@@ -26,20 +23,6 @@ const userSchema = new mongoose.Schema({
     owned: {
       hats: { type: [String], default: [] },
       accessories: { type: [String], default: [] }
-    },
-    equipped: {
-      hat: { type: String, default: null },
-      accessory: { type: String, default: null },
-      position: {
-        hat: {
-          x: { type: Number, default: 50 },
-          y: { type: Number, default: 20 }
-        },
-        accessory: {
-          x: { type: Number, default: 50 },
-          y: { type: Number, default: 80 }
-        }
-      }
     }
   }
 });
