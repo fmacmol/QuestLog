@@ -543,9 +543,9 @@ app.post('/api/shop/buy-animal', authenticate, async (req, res) => {
       axolotl: 'sea',
       fennecfox: 'desert',
       slowloris: 'forest',
-      dragon: 'rainbowFire',
+      dragon: 'starsNight',
       griffin: 'sky',
-      phoenix: 'starsNight'
+      phoenix: 'rainbowFire'
     };
     
     user.pets.push({

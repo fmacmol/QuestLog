@@ -125,7 +125,6 @@ const PetSection = ({ onBack }) => {
       
       if (data.success) {
         setActiveIndex(newIndex);
-        showToast(`🐾 Cambiaste a ${pets[newIndex].animal}`, 'info');
       }
     } catch (error) {
       showToast('Error al cambiar de mascota', 'error');
@@ -266,47 +265,16 @@ const PetSection = ({ onBack }) => {
           </div>
         )}
       </div>
-
-      {/* Barra inferior flotante */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-center pb-4">
-        <div className="relative">
-          <button
-            onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-            className="bg-rpg-gold text-rpg-dark w-12 h-12 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform duration-200"
-          >
-            <svg 
-              className={`w-6 h-6 transition-transform duration-300 ${isDrawerOpen ? 'rotate-180' : ''}`}
-              fill="none" stroke="currentColor" viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-
-          <div
-            className={`absolute bottom-16 left-1/2 transform -translate-x-1/2 bg-rpg-card border-2 border-rpg-gold rounded-xl shadow-2xl transition-all duration-300 overflow-hidden ${
-              isDrawerOpen 
-                ? 'w-64 opacity-100 visible pb-2' 
-                : 'w-0 opacity-0 invisible'
-            }`}
-          >
-            <div className="p-4 space-y-2">
-              <p className="text-center text-rpg-gold font-bold mb-2">Opciones</p>
-              <button className="w-full btn-secondary text-sm py-2" onClick={() => setShowShop(true)}>
-                🛒 Tienda
-              </button>
-              <button className="w-full btn-secondary text-sm py-2" onClick={() => showToast('Próximamente', 'info')}>
-                🖼️ Fondos
-              </button>
-              <button className="w-full btn-secondary text-sm py-2" onClick={() => showToast('Próximamente', 'info')}>
-                🎽 Vestir
-              </button>
-              <button className="w-full btn-secondary text-sm py-2" onClick={() => showToast('Próximamente', 'info')}>
-                ⚔️ Decoración
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Botón flotante para abrir tienda */}
+      <button
+        onClick={() => setShowShop(true)}
+        className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-rpg-gold hover:bg-yellow-500 text-rpg-dark w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110"
+      >
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.5 6M17 13l1.5 6M9 21h6M12 18v3" />
+        </svg>
+      </button>
+      
 
       {/* Modal de tienda */}
       {showShop && (
