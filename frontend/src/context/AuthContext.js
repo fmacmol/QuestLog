@@ -38,6 +38,7 @@ export const AuthProvider = ({ children }) => {
       isAdmin: userData.isAdmin || false,
       stats: userData.stats || { totalXP: 0, level: 1, completedQuests: 0, completedChallenges: 0 },
       completedChallenges: userData.completedChallenges || [],
+      coins: userData.coins || 0,
       ownedBackgrounds: userData.ownedBackgrounds || []
     };
     

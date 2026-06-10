@@ -82,7 +82,13 @@ app.post('/api/auth/register', async (req, res) => {
     
     res.status(201).json({ 
       token, 
-      user: { id: user._id, username, email, ownedBackgrounds: user.ownedBackgrounds || [] } 
+      user: {
+        id: user._id,
+        username, 
+        email, 
+        ownedBackgrounds: user.ownedBackgrounds || [],
+        coins: 0
+      } 
     });
   } catch (error) {
     console.error('ERROR:', error);
@@ -122,7 +128,8 @@ app.post('/api/auth/login', async (req, res) => {
         username: user.username, 
         email: user.email, 
         stats: user.stats || { totalXP: 0, level: 1, completedQuests: 0, completedChallenges: 0 },
-        completedChallenges: user.completedChallenges || []
+        completedChallenges: user.completedChallenges || [],
+        coins: user.coins || 0,
       } 
     });
   } catch (error) {
@@ -394,9 +401,9 @@ app.post('/api/pets/init', authenticate, async (req, res) => {
     }
     
     const packs = [
-      { animal: 'dog', background: 'sea' },
-      { animal: 'cat', background: 'sea' },
-      { animal: 'rabbit', background: 'sea' }
+      { animal: 'dog', background: 'dogPaw' },
+      { animal: 'cat', background: 'ballOfWool' },
+      { animal: 'rabbit', background: 'carrot' }
     ];
     
     const randomPack = packs[Math.floor(Math.random() * packs.length)];
@@ -530,15 +537,15 @@ app.post('/api/shop/buy-animal', authenticate, async (req, res) => {
     
     // Asignar fondo por defecto según animal
     const defaultBackgrounds = {
-      dog: 'sea',
-      cat: 'sea',
-      rabbit: 'sea',
+      dog: 'dogPaw',
+      cat: 'ballOfWool',
+      rabbit: 'carrot',
       axolotl: 'sea',
-      fennecfox: 'volcano',
+      fennecfox: 'desert',
       slowloris: 'forest',
-      dragon: 'volcano',
-      griffin: 'volcano',
-      phoenix: 'volcano'
+      dragon: 'rainbowFire',
+      griffin: 'sky',
+      phoenix: 'starsNight'
     };
     
     user.pets.push({
