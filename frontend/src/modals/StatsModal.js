@@ -99,28 +99,6 @@ const StatsModal = ({ onClose, quests, userStats }) => {
               🌍 Retos
             </button>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setSortOrder('desc')}
-              className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                sortOrder === 'desc'
-                  ? 'bg-rpg-gold text-rpg-dark'
-                  : 'bg-rpg-card/50 text-gray-400 hover:bg-rpg-card'
-              }`}
-            >
-              📅 Más reciente
-            </button>
-            <button
-              onClick={() => setSortOrder('asc')}
-              className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                sortOrder === 'asc'
-                  ? 'bg-rpg-gold text-rpg-dark'
-                  : 'bg-rpg-card/50 text-gray-400 hover:bg-rpg-card'
-              }`}
-            >
-              📅 Más antigua
-            </button>
-          </div>
         </div>
 
         {/* Lista de tareas completadas */}
@@ -151,9 +129,6 @@ const StatsModal = ({ onClose, quests, userStats }) => {
                     )}
                     <div className="flex gap-3 mt-2 text-xs">
                       <span className="text-rpg-gold">✨ {quest.xpReward} XP</span>
-                      <span className="text-gray-500">
-                        📅 {new Date(quest.createdAt).toLocaleDateString()}
-                      </span>
                     </div>
                   </div>
                   <span className="text-green-500 text-sm">✅</span>
