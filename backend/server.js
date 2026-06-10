@@ -11,7 +11,8 @@ function calculateLevel(xp) {
 
 // Calcular etapa de la mascota según XP
 function getPetStageByXP(xp) {
-  if (xp < 100) return 'egg';
+  if (xp < 50) return 'egg';
+  if (xp < 100) return 'egg_cracked';
   if (xp < 500) return 'baby';
   return 'adult';
 }
@@ -120,7 +121,6 @@ app.post('/api/auth/login', async (req, res) => {
         id: user._id, 
         username: user.username, 
         email: user.email, 
-        isAdmin: user.isAdmin || false,
         stats: user.stats || { totalXP: 0, level: 1, completedQuests: 0, completedChallenges: 0 },
         completedChallenges: user.completedChallenges || []
       } 
@@ -136,10 +136,9 @@ const questSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   title: { type: String, required: true },
   description: { type: String, default: '' },
-  xpReward: { type: Number, default: 100 },
-  difficulty: { type: String, enum: ['Fácil', 'Media', 'Difícil'], default: 'Media' },
+  xpReward: { type: Number, default: 250 },
+  difficulty: { type: String, enum: ['Muy fácil', 'Fácil', 'Media', 'Difícil', 'Muy difícil'], default: 'Media' },
   completed: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now },
   
   // NUEVOS CAMPOS PARA MULTIREQUISITOS
   isMultiRequirement: { type: Boolean, default: false },
@@ -147,29 +146,9 @@ const questSchema = new mongoose.Schema({
     text: { type: String, required: true },
     completed: { type: Boolean, default: false }
   }],
-
-  fromChallenge: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'PublicChallenge' 
-  }
-
 });
 
 const Quest = mongoose.model('Quest', questSchema);
-
-// Modelo de Retos Públicos
-const publicChallengeSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  description: { type: String, default: '' },
-  xpReward: { type: Number, default: 100 },
-  difficulty: { type: String, enum: ['Fácil', 'Media', 'Difícil'], default: 'Media' },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  createdAt: { type: Date, default: Date.now },
-  isActive: { type: Boolean, default: true },
-  acceptedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
-});
-
-const PublicChallenge = mongoose.model('PublicChallenge', publicChallengeSchema);
 
 // Rutas
 app.get('/', (req, res) => {
@@ -229,6 +208,14 @@ app.put('/api/quests/:id', authenticate, async (req, res) => {
       // AÑADIR MONEDAS
       user.coins = (user.coins || 0) + earnedCoins;
 
+      // AÑADIR XP A LA MASCOTA ACTIVA
+      const activeIndex = user.activePetIndex || 0;
+      if (user.pets && user.pets[activeIndex]) {
+        const pet = user.pets[activeIndex];
+        pet.xp = (pet.xp || 0) + quest.xpReward;
+        pet.stage = getPetStageByXP(pet.xp);
+      }
+
       await user.save();
     }
     
@@ -248,25 +235,15 @@ app.put('/api/quests/:id', authenticate, async (req, res) => {
       // RESTAR MONEDAS
       user.coins = (user.coins && user.coins >= earnedCoins ? user.coins - earnedCoins : 0);
 
-      await user.save();
-    }
-
-    // ===== ACTUALIZAR ETAPA DE LAS MASCOTAS (en ambos casos) =====
-    if (user.pets && user.pets.length > 0) {
-      const newStage = getPetStageByXP(user.stats.totalXP);
-      let anyChanged = false;
-      
-      user.pets.forEach(pet => {
-        if (pet.stage !== newStage) {
-          pet.stage = newStage;
-          anyChanged = true;
-        }
-      });
-      
-      if (anyChanged) {
-        await user.save();
-        req.petEvolution = newStage; // Para enviar en la respuesta
+      // RESTAR XP A LA MASCOTA ACTIVA
+      const activeIndex = user.activePetIndex || 0;
+      if (user.pets && user.pets[activeIndex]) {
+        const pet = user.pets[activeIndex];
+        pet.xp = Math.max(0, (pet.xp || 0) - quest.xpReward);
+        pet.stage = getPetStageByXP(pet.xp);
       }
+
+      await user.save();
     }
 
     const updatedQuest = await Quest.findByIdAndUpdate(
@@ -278,10 +255,10 @@ app.put('/api/quests/:id', authenticate, async (req, res) => {
     // Enviar también información de evolución si ocurrió
     res.json({ 
       quest: updatedQuest,
-      petEvolution: req.petEvolution || null,
       coins: user.coins
     });
   } catch (error) {
+    console.error('Error en PUT /quests:', error);
     res.status(400).json({ error: error.message });
   }
 });
@@ -302,118 +279,6 @@ app.delete('/api/quests/:id', authenticate, async (req, res) => {
     const quest = await Quest.findOneAndDelete({ _id: req.params.id, userId: req.userId });
     if (!quest) return res.status(404).json({ error: 'Quest no encontrada' });
     res.json({ message: 'Quest eliminada' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
-// ===== RUTAS PARA RETOS PÚBLICOS =====
-
-// GET todos los retos activos
-app.get('/api/public-challenges', async (req, res) => {
-  try {
-    const challenges = await PublicChallenge.find({ isActive: true })
-      .sort({ createdAt: -1 })
-      .populate('createdBy', 'username')
-      .populate('acceptedBy', '_id');
-    res.json(challenges);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// POST aceptar un reto (añade el usuario a acceptedBy)
-app.post('/api/public-challenges/:id/accept', authenticate, async (req, res) => {
-  try {
-    const challenge = await PublicChallenge.findById(req.params.id);
-    if (!challenge) return res.status(404).json({ error: 'Reto no encontrado' });
-
-    const user = await User.findById(req.userId);
-    // Si ya completó este reto en el pasado, no puede volver a aceptarlo
-    if (user.completedChallenges.includes(challenge._id)) {
-      return res.status(400).json({ error: 'Ya completaste este reto anteriormente' });
-    }
-
-    if (challenge.acceptedBy.includes(req.userId)) {
-      return res.status(400).json({ error: 'Ya aceptaste este reto' });
-    }
-
-    challenge.acceptedBy.push(req.userId);
-    await challenge.save();
-
-    // Crear la quest asociada (pero no se suman estadísticas hasta que se complete)
-    const newQuest = new Quest({
-      title: challenge.title,
-      description: challenge.description,
-      xpReward: challenge.xpReward,
-      difficulty: challenge.difficulty,
-      fromChallenge: challenge._id,
-      userId: req.userId,
-      completed: false
-    });
-    await newQuest.save();
-
-    res.status(201).json(newQuest);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// POST cancelar reto (quita el usuario de acceptedBy)
-app.post('/api/public-challenges/:id/cancel', authenticate, async (req, res) => {
-  try {
-    const challenge = await PublicChallenge.findById(req.params.id);
-    if (!challenge) {
-      return res.status(404).json({ error: 'Reto no encontrado' });
-    }
-    
-    // Quitar usuario de la lista de aceptados
-    challenge.acceptedBy = challenge.acceptedBy.filter(
-      userId => userId.toString() !== req.userId
-    );
-    await challenge.save();
-    
-    res.json({ success: true, challenge });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// POST crear nuevo reto (solo admin)
-app.post('/api/public-challenges', authenticate, async (req, res) => {
-  try {
-    // Verificar si el usuario es admin (necesitas añadir campo isAdmin al User)
-    const user = await User.findById(req.userId);
-    if (!user.isAdmin) {
-      return res.status(403).json({ error: 'No autorizado' });
-    }
-    
-    const challenge = new PublicChallenge({
-      ...req.body,
-      createdBy: req.userId
-    });
-    await challenge.save();
-    res.status(201).json(challenge);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
-// DELETE desactivar reto (solo admin)
-app.delete('/api/public-challenges/:id', authenticate, async (req, res) => {
-  try {
-    const user = await User.findById(req.userId);
-    if (!user.isAdmin) {
-      return res.status(403).json({ error: 'No autorizado' });
-    }
-    
-    const challenge = await PublicChallenge.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { returnDocument: 'after' }
-    );
-    res.json(challenge);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -444,7 +309,7 @@ app.put('/api/auth/change-password', authenticate, async (req, res) => {
 // Obtener perfil de usuario
 app.get('/api/auth/profile', authenticate, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select('username email stats completedChallenges cosmetics coins pets ownedBackgrounds');
+    const user = await User.findById(req.userId).select('username email stats lastCelebratedLevel completedChallenges cosmetics coins pets ownedBackgrounds');
     res.json(user);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -529,20 +394,18 @@ app.post('/api/pets/init', authenticate, async (req, res) => {
     }
     
     const packs = [
-      { animal: 'axolotl', background: 'sea' },
-      { animal: 'dragon', background: 'volcano' },
-      { animal: 'penguin', background: 'ice' }
+      { animal: 'dog', background: 'sea' },
+      { animal: 'cat', background: 'sea' },
+      { animal: 'rabbit', background: 'sea' }
     ];
     
     const randomPack = packs[Math.floor(Math.random() * packs.length)];
 
-    // Calcular etapa según XP actual del usuario
-    const currentStage = getPetStageByXP(user.stats.totalXP || 0);
-    
     user.pets = [{
       animal: randomPack.animal,
       background: randomPack.background,
-      stage: currentStage,
+      stage: 'egg',
+      xp: 0,
       isActive: true
     }];
     user.activePetIndex = 0;
@@ -577,6 +440,25 @@ app.post('/api/pets/activate', authenticate, async (req, res) => {
   }
 });
 
+
+// Actualizar el último nivel celebrado
+app.put('/api/auth/update-last-level', authenticate, async (req, res) => {
+  try {
+    const { level } = req.body;
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    
+    // Solo actualizar si el nivel es mayor que el último celebrado
+    if (level > (user.stats.lastCelebratedLevel || 0)) {
+      user.stats.lastCelebratedLevel = level;
+      await user.save();
+    }
+    
+    res.json({ success: true, lastCelebratedLevel: user.stats.lastCelebratedLevel });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // ===== RUTAS PARA TIENDA =====
 
@@ -620,26 +502,50 @@ app.post('/api/shop/buy-animal', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Monedas insuficientes' });
     }
     
-    // Seleccionar animal aleatorio según rareza
+    // Animales disponibles según rareza
     const animalsByRarity = {
-      common: ['axolotl'],
-      rare: ['penguin'],
-      mythical: ['dragon']
+      common: ['dog', 'cat', 'rabbit'],
+      rare: ['axolotl', 'fennecfox', 'slowloris'],
+      mythical: ['dragon', 'griffin', 'phoenix']
     };
-    const availableAnimals = animalsByRarity[rarity];
-    const randomAnimal = availableAnimals[Math.floor(Math.random() * availableAnimals.length)];
+    
+    // ANIMALES QUE YA POSEE EL USUARIO
+    const ownedAnimals = user.pets.map(pet => pet.animal);
+    const availableToBuy = animalsByRarity[rarity].filter(a => !ownedAnimals.includes(a));
+    
+    // SI YA TIENE TODOS LOS ANIMALES DE ESTA RAREZA
+    if (availableToBuy.length === 0) {
+      let rarityName = '';
+      if (rarity === 'common') rarityName = 'comunes';
+      else if (rarity === 'rare') rarityName = 'raros';
+      else rarityName = 'mitológicos';
+      
+      return res.status(400).json({ 
+        error: `¡Ya tienes todos los animales ${rarityName}! Prueba otra rareza.` 
+      });
+    }
+    
+    // SELECCIONAR ANIMAL ALEATORIO DE LOS DISPONIBLES
+    const randomAnimal = availableToBuy[Math.floor(Math.random() * availableToBuy.length)];
     
     // Asignar fondo por defecto según animal
     const defaultBackgrounds = {
+      dog: 'sea',
+      cat: 'sea',
+      rabbit: 'sea',
       axolotl: 'sea',
-      penguin: 'ice',
-      dragon: 'volcano'
+      fennecfox: 'volcano',
+      slowloris: 'forest',
+      dragon: 'volcano',
+      griffin: 'volcano',
+      phoenix: 'volcano'
     };
     
     user.pets.push({
       animal: randomAnimal,
       background: defaultBackgrounds[randomAnimal],
-      stage: getPetStageByXP(user.stats.totalXP),
+      stage: 'egg',
+      xp: 0,
       isActive: false
     });
     user.coins -= price;
@@ -647,6 +553,7 @@ app.post('/api/shop/buy-animal', authenticate, async (req, res) => {
     
     res.json({ success: true, pet: user.pets[user.pets.length - 1], coins: user.coins });
   } catch (error) {
+    console.error('Error comprando animal:', error);
     res.status(500).json({ error: error.message });
   }
 });

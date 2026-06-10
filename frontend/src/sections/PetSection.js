@@ -13,10 +13,23 @@ const PetSection = ({ onBack }) => {
   const [showGift, setShowGift] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showShop, setShowShop] = useState(false);
+  const [frame, setFrame] = useState(0);
 
   useEffect(() => {
     loadPets();
   }, []);
+
+  // ANIMACIÓN: alternar imágenes cada 800ms solo si es adulto
+  useEffect(() => {
+    if (pets.length > 0 && pets[activeIndex]?.stage === 'adult') {
+      const interval = setInterval(() => {
+        setFrame(prev => (prev + 1) % 2); // Alterna entre 0 y 1
+      }, 800); // Cambia cada 800ms
+      return () => clearInterval(interval);
+    } else {
+      setFrame(0); // Resetear frame si no es adulto
+    }
+  }, [pets, activeIndex]);
 
   const loadPets = async () => {
     try {
@@ -50,10 +63,49 @@ const PetSection = ({ onBack }) => {
         setPets(data.pets);
         setActiveIndex(data.activeIndex);
         setShowGift(false);
-        showToast('🎁 ¡Felicidades! Tu huevo está listo', 'success');
+        showToast('🎁 ¡Felicidades! Tienes una mascota de regalo', 'success');
       }
     } catch (error) {
       showToast('Error al obtener tu mascota', 'error');
+    }
+  };
+
+  const getAnimalNameInSpanish = (animal) => {
+    const names = {
+      // Comunes
+      dog: 'Perro',
+      cat: 'Gato',
+      rabbit: 'Conejo',
+      // Raros
+      axolotl: 'Ajolote',
+      fennecfox: 'Zorro Fennec',
+      slowloris: 'Perezoso Loris',
+      // Mitológicos
+      dragon: 'Dragón',
+      griffin: 'Grifo',
+      phoenix: 'Fénix'
+    };
+    return names[animal] || animal;
+  };
+
+  const getAnimalRarity = (animal) => {
+    const common = ['dog', 'cat', 'rabbit'];
+    const rare = ['axolotl', 'fennecfox', 'slowloris'];
+    const mythical = ['dragon', 'griffin', 'phoenix'];
+    
+    if (common.includes(animal)) return 'Común';
+    if (rare.includes(animal)) return 'Raro';
+    if (mythical.includes(animal)) return 'Mitológico';
+    return 'Desconocido';
+  };
+
+  const getStageInSpanish = (stage) => {
+    switch(stage) {
+      case 'egg': return 'Huevo';
+      case 'egg_cracked': return 'Huevo agrietado';
+      case 'baby': return 'Bebé';
+      case 'adult': return 'Adulto';
+      default: return stage;
     }
   };
 
@@ -88,9 +140,22 @@ const PetSection = ({ onBack }) => {
   });
 
   const getPetImage = (pet) => {
+    // Huevos (comparten imagen para todos los animales)
     if (pet.stage === 'egg') {
-      return `/images/pets/egg_${pet.animal}.png`;
+      return `/images/pets/egg.png`;
     }
+    if (pet.stage === 'egg_cracked') {
+      return `/images/pets/egg_cracked.png`;
+    }
+    if (pet.stage === 'baby') {
+      return `/images/pets/${pet.animal}_baby.png`;
+    }
+    if (pet.stage === 'adult') {
+      // Alterna entre dos imágenes
+      const frameNumber = frame === 0 ? 1 : 2;
+      return `/images/pets/${pet.animal}_adult_${frameNumber}.png`;
+    }
+    // placeholder por si hay un estado desconocido
     return `/images/pets/${pet.animal}_${pet.stage}.png`;
   };
 
@@ -161,7 +226,7 @@ const PetSection = ({ onBack }) => {
               <img 
                 src={getPetImage(activePet)} 
                 alt={`${activePet.animal} - ${activePet.stage}`}
-                className={`w-64 h-64 object-contain mx-auto drop-shadow-2xl ${activePet.stage === 'egg' ? 'egg-wiggle' : ''}`}
+                className={`w-64 h-64 object-contain mx-auto drop-shadow-2xl ${(activePet.stage === 'egg' || activePet.stage === 'egg_cracked') ? 'egg-wiggle' : ''}`}
                 onError={(e) => {
                   e.target.src = 'https://placehold.co/300x300/2d1b3c/e4b363?text=🐣';
                 }}
@@ -169,7 +234,11 @@ const PetSection = ({ onBack }) => {
             </div>
             
             <h2 className="text-3xl font-rpg text-rpg-gold mt-4 capitalize">
-              {activePet.animal} - {activePet.stage === 'egg' ? 'Huevo' : activePet.stage}
+              {(activePet.stage === 'egg' || activePet.stage === 'egg_cracked') ? (
+                `Huevo misterioso - ${getAnimalRarity(activePet.animal)}`
+              ) : (
+                `${getAnimalNameInSpanish(activePet.animal)} ${getStageInSpanish(activePet.stage)}`
+              )}
             </h2>
             
             <div className="flex justify-center gap-2 mt-2">
@@ -185,9 +254,10 @@ const PetSection = ({ onBack }) => {
             </div>
             
             <p className="text-gray-300 mt-4">
-              {activePet.stage === 'egg' && 'Pronto eclosionará...'}
+              {activePet.stage === 'egg' && 'Parede que aún le falta para eclosionar...'}
+              {activePet.stage === 'egg_cracked' && 'Parede que está a punto de eclosionar...'}
               {activePet.stage === 'baby' && 'Tu mascota está creciendo'}
-              {activePet.stage === 'adult' && 'Tu mascota ha alcanzado su forma final'}
+              {activePet.stage === 'adult' && 'Tu mascota ha alcanzado su etapa adulta'}
             </p>
             
             {pets.length > 1 && (

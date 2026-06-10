@@ -145,9 +145,12 @@ const QuestCard = ({
           <div className="flex items-center gap-3 mb-2">
             <h3 className="text-xl font-bold text-rpg-gold">{quest.title}</h3>
             <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+              quest.difficulty === 'Muy fácil' ? 'border-blue-400 text-blue-400' :
               quest.difficulty === 'Fácil' ? 'border-green-500 text-green-500' :
               quest.difficulty === 'Media' ? 'border-yellow-500 text-yellow-500' :
-              'border-red-500 text-red-500'
+              quest.difficulty === 'Difícil' ? 'border-orange-500 text-orange-500' :
+              quest.difficulty === 'Muy difícil' ? 'border-red-500 text-red-500' :
+              'border-gray-500 text-gray-500'
             }`}>
               {quest.difficulty}
             </span>
@@ -158,9 +161,6 @@ const QuestCard = ({
           <div className="flex items-center gap-2 text-sm">
             <span className="bg-rpg-gold/20 text-rpg-gold px-2 py-1 rounded">
               ✨ {quest.xpReward} XP
-            </span>
-            <span className="text-gray-400">
-              📅 {new Date(quest.createdAt).toLocaleDateString()}
             </span>
           </div>
           

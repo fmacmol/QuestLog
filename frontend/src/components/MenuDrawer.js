@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 const MenuDrawer = ({ onOpenAuth, onMenuStateChange, onOpenSettings, onLogout, onOpenStats, onOpenPet }) => {
   const [isOpen, setIsOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { showToast } = useToast();
 
   const toggleMenu = () => {
     const newState = !isOpen;
@@ -14,6 +16,26 @@ const MenuDrawer = ({ onOpenAuth, onMenuStateChange, onOpenSettings, onLogout, o
   const closeMenu = () => {
     setIsOpen(false);
     onMenuStateChange?.(false);
+  };
+
+  const handleStatsClick = () => {
+    if (!user) {
+      showToast('Regístrate para ver tus estadísticas', 'info');
+      closeMenu();
+      return;
+    }
+    onOpenStats();
+    closeMenu();
+  };
+
+  const handlePetClick = () => {
+    if (!user) {
+      showToast('Regístrate para tener tu propia mascota', 'info');
+      closeMenu();
+      return;
+    }
+    onOpenPet();
+    closeMenu();
   };
 
   return (
@@ -44,28 +66,19 @@ const MenuDrawer = ({ onOpenAuth, onMenuStateChange, onOpenSettings, onLogout, o
       >
         <div className="flex flex-col p-6 pt-20 space-y-4">
             <button
-              onClick={() => {
-                // Abrir estadísticas
-                onOpenStats();
-                closeMenu();
-              }}
-              className="w-full text-gray-300 hover:text-rpg-gold transition-colors"
+              onClick={handleStatsClick}
+              className="w-full text-gray-300 hover:text-rpg-gold transition-colors text-left px-4 py-2 rounded-lg hover:bg-rpg-dark/50"
             >
                 📊 Estadísticas
             </button>
             <button
-              onClick={() => {
-                // Abrir mascota
-                onOpenPet();
-                closeMenu();
-              }}
-              className="w-full text-gray-300 hover:text-rpg-gold transition-colors"
+              onClick={handlePetClick}
+              className="w-full text-gray-300 hover:text-rpg-gold transition-colors text-left px-4 py-2 rounded-lg hover:bg-rpg-dark/50"
             >
                 🐶 Mascota
             </button>
             <button
               onClick={() => {
-                // Abrir configuración
                 onOpenSettings();
                 closeMenu();
               }}

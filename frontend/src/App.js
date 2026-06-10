@@ -21,7 +21,6 @@ function App() {
   const [newQuest, setNewQuest] = useState({
     title: '',
     description: '',
-    xpReward: 100,
     difficulty: 'Media'
   });
   const [isMultiRequirement, setIsMultiRequirement] = useState(false);
@@ -48,6 +47,17 @@ function App() {
       });
     } catch (error) {
       console.error('Error refrescando perfil:', error);
+    }
+  };
+
+  const getXpByDifficulty = (difficulty) => {
+    switch(difficulty) {
+      case 'Muy fácil': return 50;
+      case 'Fácil': return 150;
+      case 'Media': return 250;
+      case 'Difícil': return 500;
+      case 'Muy difícil': return 1000;
+      default: return 250;
     }
   };
 
@@ -100,7 +110,6 @@ function App() {
         difficulty: quest.difficulty,
         isMultiRequirement: quest.isMultiRequirement || false,
         subtasks: quest.subtasks || [],
-        fromChallenge: quest.fromChallenge
       };
 
       try {
@@ -193,7 +202,7 @@ function App() {
     const questData = {
       title: newQuest.title,
       description: newQuest.description,
-      xpReward: parseInt(newQuest.xpReward),
+      xpReward: getXpByDifficulty(newQuest.difficulty),
       difficulty: newQuest.difficulty,
       isMultiRequirement: isMultiRequirement,
       subtasks: isMultiRequirement ? subtasks : []
@@ -276,7 +285,7 @@ function App() {
       ...editingQuest,
       title: newQuest.title,
       description: newQuest.description,
-      xpReward: parseInt(newQuest.xpReward),
+      xpReward: getXpByDifficulty(newQuest.difficulty),
       difficulty: newQuest.difficulty,
       isMultiRequirement: isMultiRequirement,
       subtasks: isMultiRequirement ? subtasks : []
@@ -427,10 +436,12 @@ function App() {
 
   const getDifficultyColor = (difficulty) => {
     switch(difficulty) {
-      case 'Fácil': return 'border-green-500 bg-green-500/10';
-      case 'Media': return 'border-yellow-500 bg-yellow-500/10';
-      case 'Difícil': return 'border-red-500 bg-red-500/10';
-      default: return 'border-gray-500 bg-gray-500/10';
+      case 'Muy fácil': return 'border-blue-400 bg-blue-500/15';
+      case 'Fácil': return 'border-green-500 bg-green-500/15';
+      case 'Media': return 'border-yellow-500 bg-yellow-500/15';
+      case 'Difícil': return 'border-orange-500 bg-orange-500/15';
+      case 'Muy difícil': return 'border-red-500 bg-red-500/15';
+      default: return 'border-gray-500 bg-gray-500/15';
     }
   };
 
@@ -440,7 +451,7 @@ function App() {
   const xpForNextLevel = (level * level * 100) - totalXP;
   const completedCount = (user?.stats?.completedQuests || 0) + (user?.stats?.completedChallenges || 0);
 
-  useLevelUp(level, previousLevel, user?.id || 'anon');
+  useLevelUp(level, user?.id || 'anon');
 
   useEffect(() => {
     setPreviousLevel(level);
@@ -530,14 +541,16 @@ function App() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">XP</label>
-                  <input type="number" name="xpReward" value={newQuest.xpReward} onChange={handleInputChange} min="10" max="1000" className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg text-white" />
+                  <input type="text" value={getXpByDifficulty(newQuest.difficulty)} disabled className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg text-gray-400 cursor-not-allowed"/>
                 </div>
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">Dificultad</label>
                   <select name="difficulty" value={newQuest.difficulty} onChange={handleInputChange} className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg text-white">
+                    <option value="Muy fácil">Muy fácil</option>
                     <option value="Fácil">Fácil</option>
                     <option value="Media">Media</option>
                     <option value="Difícil">Difícil</option>
+                    <option value="Muy difícil">Muy difícil</option>
                   </select>
                 </div>
                 <div className="mb-4">
