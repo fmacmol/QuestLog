@@ -87,6 +87,17 @@ body {
   }
 }
 
+/* Al final de tu index.css, antes de las animaciones */
+input, textarea, select {
+  color: var(--text-primary);
+  background-color: var(--bg-card);
+}
+
+input::placeholder, textarea::placeholder {
+  color: #6b7280;  /* gris medio - visible en ambos temas */
+  opacity: 1;
+}
+
 /* ===== ANIMACIONES ===== */
 @keyframes bounce {
   0%, 100% { transform: translate(-50%, -50%) scale(1); }
