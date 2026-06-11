@@ -146,8 +146,8 @@ const questSchema = new mongoose.Schema({
   xpReward: { type: Number, default: 250 },
   difficulty: { type: String, enum: ['Muy fácil', 'Fácil', 'Media', 'Difícil', 'Muy difícil'], default: 'Media' },
   completed: { type: Boolean, default: false },
-  
-  // NUEVOS CAMPOS PARA MULTIREQUISITOS
+  createdAt: { type: Date, default: Date.now },
+  archived: { type: Boolean, default: false },
   isMultiRequirement: { type: Boolean, default: false },
   subtasks: [{
     text: { type: String, required: true },
@@ -165,7 +165,7 @@ app.get('/', (req, res) => {
 // GET todas las quests del usuario
 app.get('/api/quests', authenticate, async (req, res) => {
   try {
-    const quests = await Quest.find({ userId: req.userId }).sort({ createdAt: -1 });
+    const quests = await Quest.find({ userId: req.userId, archived: false });
     res.json(quests);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -283,9 +283,31 @@ app.delete('/api/quests/cleanup', async (req, res) => {
 // DELETE eliminar quest
 app.delete('/api/quests/:id', authenticate, async (req, res) => {
   try {
-    const quest = await Quest.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    // Primero buscar, NO eliminar
+    const quest = await Quest.findOne({ _id: req.params.id, userId: req.userId });
     if (!quest) return res.status(404).json({ error: 'Quest no encontrada' });
-    res.json({ message: 'Quest eliminada' });
+
+    if (quest.completed) {
+      // Si está completada, archivarla
+      quest.archived = true;
+      await quest.save();
+      res.json({ message: 'Tarea archivada (historial)' });
+    } else {
+      // Si no está completada, eliminarla realmente
+      await Quest.deleteOne({ _id: req.params.id });
+      res.json({ message: 'Tarea eliminada' });
+    }
+  } catch (error) {
+    console.error('Error en DELETE /quests:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET quests archivadas (historial)
+app.get('/api/quests/archived', authenticate, async (req, res) => {
+  try {
+    const quests = await Quest.find({ userId: req.userId, archived: true }).sort({ createdAt: -1 });
+    res.json(quests);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

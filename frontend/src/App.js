@@ -445,14 +445,21 @@ function App() {
     }
   };
 
-  const totalXP = user?.stats?.totalXP || 0;
-  const level = user?.stats?.level || 1;
-  const [previousLevel, setPreviousLevel] = useState(level);
+  const totalXP = user?.stats?.totalXP ?? quests.filter(q => q.completed).reduce((sum, q) => sum + (q.xpReward || 0), 0);
+  const level = user?.stats?.level ?? Math.floor(Math.sqrt(totalXP / 100)) + 1;
+  const completedCount = user?.stats 
+    ? (user.stats.completedQuests || 0) + (user.stats.completedChallenges || 0)
+    : quests.filter(q => q.completed).length;
+
   const xpForNextLevel = (level * level * 100) - totalXP;
-  const completedCount = (user?.stats?.completedQuests || 0) + (user?.stats?.completedChallenges || 0);
 
-  useLevelUp(level, user?.id || 'anon');
+  // Estado para el nivel anterior
+  const [previousLevel, setPreviousLevel] = useState(level);
 
+  // Detectar subida de nivel
+  useLevelUp(level, previousLevel, user?.id || 'anon');
+
+  // Actualizar nivel anterior cuando cambie
   useEffect(() => {
     setPreviousLevel(level);
   }, [level]);
