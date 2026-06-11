@@ -132,3 +132,19 @@ input::placeholder, textarea::placeholder {
 .egg-wiggle {
   animation: eggWiggle 2s ease-in-out infinite;
 }
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.baby-float {
+  animation: float 2s ease-in-out infinite;
+}

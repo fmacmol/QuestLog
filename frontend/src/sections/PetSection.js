@@ -225,7 +225,10 @@ const PetSection = ({ onBack }) => {
               <img 
                 src={getPetImage(activePet)} 
                 alt={`${activePet.animal} - ${activePet.stage}`}
-                className={`w-64 h-64 object-contain mx-auto drop-shadow-2xl ${(activePet.stage === 'egg' || activePet.stage === 'egg_cracked') ? 'egg-wiggle' : ''}`}
+                className={`w-64 h-64 object-contain mx-auto drop-shadow-2xl 
+                  ${(activePet.stage === 'egg' || activePet.stage === 'egg_cracked') ? 'egg-wiggle' : ''} 
+                  ${activePet.stage === 'baby' ? 'baby-float' : ''}
+                `}
                 onError={(e) => {
                   e.target.src = 'https://placehold.co/300x300/2d1b3c/e4b363?text=🐣';
                 }}
