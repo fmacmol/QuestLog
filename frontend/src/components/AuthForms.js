@@ -68,7 +68,7 @@ const AuthForms = ({ onClose }) => {
               placeholder="Nombre de usuario"
               value={formData.username}
               onChange={handleChange}
-              className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg text-white"
+              className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg placeholder-gray-500"
               required
             />
           )}
@@ -79,7 +79,7 @@ const AuthForms = ({ onClose }) => {
             placeholder="Email"
             value={formData.email}
             onChange={handleChange}
-            className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg text-white"
+            className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg placeholder-gray-500"
             required
           />
           
@@ -89,7 +89,7 @@ const AuthForms = ({ onClose }) => {
             placeholder="Contraseña"
             value={formData.password}
             onChange={handleChange}
-            className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg text-white"
+            className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg placeholder-gray-500"
             required
           />
           

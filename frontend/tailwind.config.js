@@ -7,11 +7,11 @@ module.exports = {
     extend: {
       colors: {
         rpg: {
-          purple: '#2d1b3c',
-          gold: '#e4b363',
-          dark: '#1a1124',
-          card: '#2a1a36',
-          accent: '#a36d3c'
+          purple: 'var(--color-purple)',
+          gold: 'var(--color-gold)',
+          dark: 'var(--bg-primary)',
+          card: 'var(--bg-card)',
+          accent: 'var(--color-accent)'
         }
       },
       fontFamily: {

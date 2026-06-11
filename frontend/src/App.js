@@ -536,8 +536,8 @@ function App() {
           <form onSubmit={editingQuest ? updateQuest : createQuest} className="quest-card mb-8">
             <h2 className="text-2xl font-rpg text-rpg-gold mb-4">{editingQuest ? '📝 Editar Misión' : '📜 Nueva Misión'}</h2>
             <div className="grid gap-4">
-              <input type="text" name="title" value={newQuest.title} onChange={handleInputChange} placeholder="Título de la misión" className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg text-white" required />
-              <textarea name="description" value={newQuest.description} onChange={handleInputChange} placeholder="Descripción (opcional)" className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg text-white" rows="2" />
+              <input type="text" name="title" value={newQuest.title} onChange={handleInputChange} placeholder="Título de la misión" className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg placeholder-gray-500" required />
+              <textarea name="description" value={newQuest.description} onChange={handleInputChange} placeholder="Descripción (opcional)" className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg placeholder-gray-500" rows="2" />
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">XP</label>
@@ -545,7 +545,7 @@ function App() {
                 </div>
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">Dificultad</label>
-                  <select name="difficulty" value={newQuest.difficulty} onChange={handleInputChange} className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg text-white">
+                  <select name="difficulty" value={newQuest.difficulty} onChange={handleInputChange} className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg placeholder-gray-500">
                     <option value="Muy fácil">Muy fácil</option>
                     <option value="Fácil">Fácil</option>
                     <option value="Media">Media</option>

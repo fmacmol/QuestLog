@@ -90,7 +90,7 @@ const SettingsModal = ({ onClose }) => {
               className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
                 activeTab === 'profile' 
                   ? 'bg-rpg-gold/20 text-rpg-gold' 
-                  : 'text-gray-300 hover:bg-rpg-gold/10'
+                  : 'text-current/70 hover:bg-rpg-gold/10'
               }`}
             >
               👤 Perfil
@@ -100,7 +100,7 @@ const SettingsModal = ({ onClose }) => {
               className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
                 activeTab === 'palette' 
                   ? 'bg-rpg-gold/20 text-rpg-gold' 
-                  : 'text-gray-300 hover:bg-rpg-gold/10'
+                  : 'text-current/70 hover:bg-rpg-gold/10'
               }`}
             >
               🎨 Paleta
@@ -110,7 +110,7 @@ const SettingsModal = ({ onClose }) => {
               className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
                 activeTab === 'notifications' 
                   ? 'bg-rpg-gold/20 text-rpg-gold' 
-                  : 'text-gray-300 hover:bg-rpg-gold/10'
+                  : 'text-current/70 hover:bg-rpg-gold/10'
               }`}
             >
               🔔 Preferencias
@@ -130,7 +130,7 @@ const SettingsModal = ({ onClose }) => {
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full p-2 bg-rpg-dark/50 border border-rpg-gold/30 rounded text-white"
+                    className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg placeholder-gray-500"
                   />
                 </div>
                 
@@ -143,7 +143,7 @@ const SettingsModal = ({ onClose }) => {
                         type="password"
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
-                        className="w-full p-2 bg-rpg-dark/50 border border-rpg-gold/30 rounded text-white"
+                        className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg placeholder-gray-500"
                       />
                     </div>
                     <div>
@@ -152,7 +152,7 @@ const SettingsModal = ({ onClose }) => {
                         type="password"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full p-2 bg-rpg-dark/50 border border-rpg-gold/30 rounded text-white"
+                        className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg placeholder-gray-500"
                       />
                     </div>
                     <div>
@@ -161,7 +161,7 @@ const SettingsModal = ({ onClose }) => {
                         type="password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full p-2 bg-rpg-dark/50 border border-rpg-gold/30 rounded text-white"
+                        className="w-full p-3 bg-rpg-dark/50 border border-rpg-gold/30 rounded-lg placeholder-gray-500"
                       />
                     </div>
                   </div>
@@ -180,7 +180,7 @@ const SettingsModal = ({ onClose }) => {
                 
                 <div className="space-y-3">
                   <label className="flex items-center justify-between p-3 bg-rpg-dark/50 rounded-lg cursor-pointer">
-                    <span className="text-gray-300">🌙 Modo oscuro</span>
+                    <span className="text-current/70">🌙 Modo oscuro</span>
                     <input
                       type="radio"
                       name="theme"
@@ -190,7 +190,7 @@ const SettingsModal = ({ onClose }) => {
                     />
                   </label>
                   <label className="flex items-center justify-between p-3 bg-rpg-dark/50 rounded-lg cursor-pointer">
-                    <span className="text-gray-300">☀️ Modo claro</span>
+                    <span className="text-current/70">☀️ Modo claro</span>
                     <input
                       type="radio"
                       name="theme"
@@ -216,7 +216,7 @@ const SettingsModal = ({ onClose }) => {
                 <h3 className="text-xl font-bold text-rpg-gold mb-4">🔔 Preferencias</h3>
                 
                 <label className="flex items-center justify-between p-3 bg-rpg-dark/50 rounded-lg cursor-pointer">
-                  <span className="text-gray-300">🔊 Sonido al subir de nivel</span>
+                  <span className="text-current/70">🔊 Sonido al subir de nivel</span>
                   <input
                     type="checkbox"
                     checked={localSound}
@@ -226,7 +226,7 @@ const SettingsModal = ({ onClose }) => {
                 </label>
                 
                 <label className="flex items-center justify-between p-3 bg-rpg-dark/50 rounded-lg cursor-pointer">
-                  <span className="text-gray-300">🎉 Confeti al subir de nivel</span>
+                  <span className="text-current/70">🎉 Confeti al subir de nivel</span>
                   <input
                     type="checkbox"
                     checked={localConfetti}
@@ -236,7 +236,7 @@ const SettingsModal = ({ onClose }) => {
                 </label>
                 
                 <label className="flex items-center justify-between p-3 bg-rpg-dark/50 rounded-lg cursor-pointer">
-                  <span className="text-gray-300">✨ Animaciones de celebración</span>
+                  <span className="text-current/70">✨ Animaciones de celebración</span>
                   <input
                     type="checkbox"
                     checked={localAnimation}
