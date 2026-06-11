@@ -10,6 +10,7 @@ import { useToast } from './context/ToastContext';
 import { safeFetch } from './utils/errorHandler';
 import StatsModal from './modals/StatsModal';
 import PetSection from './sections/PetSection';
+import ConfirmModal from './modals/ConfirmModal';
 
 function App() {
   const { user, token, loading: authLoading, logout, updateUser } = useAuth();
@@ -32,6 +33,8 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showPetSection, setShowPetSection] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [questToDelete, setQuestToDelete] = useState(null);
   const { showToast } = useToast();
 
   const refreshUserProfile = async () => {
@@ -429,6 +432,11 @@ function App() {
     await refreshUserProfile();
     showToast(`Misión "${questToDelete.title}" eliminada`, 'success');
   };
+
+  const handleDeleteClick = (id) => {
+    setQuestToDelete(id);
+    setShowConfirmDelete(true);
+  };
   
   const handleBackFromPet = () => {
     setShowPetSection(false);
@@ -613,7 +621,7 @@ function App() {
                 key={quest._id}
                 quest={quest}
                 onToggle={toggleQuest}
-                onDelete={deleteQuest}
+                onDelete={handleDeleteClick}
                 onEdit={(quest) => {
                   setEditingQuest(quest);
                   setNewQuest({
@@ -652,6 +660,24 @@ function App() {
       </main>
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showStats && <StatsModal onClose={() => setShowStats(false)} quests={quests} userStats={user?.stats} />}
+      <ConfirmModal
+        isOpen={showConfirmDelete}
+        onClose={() => {
+          setShowConfirmDelete(false);
+          setQuestToDelete(null);
+        }}
+        onConfirm={() => {
+          if (questToDelete) {
+            deleteQuest(questToDelete);
+          }
+          setShowConfirmDelete(false);
+          setQuestToDelete(null);
+        }}
+        title="¿Eliminar misión?"
+        message="Esta acción no se puede deshacer. ¿Estás seguro de que quieres eliminar esta misión?"
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
     </div>
   );
 }
